@@ -109,3 +109,8 @@ body {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* PWA-only elements (status bar, home indicator) — hidden in browser */
+@media not all and (display-mode: standalone) {
+  .avj-pwa-only { display: none !important; }
+}

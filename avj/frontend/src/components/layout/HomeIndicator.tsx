@@ -1,6 +1,7 @@
 export function HomeIndicator() {
   return (
     <div
+      className="avj-pwa-only"
       style={{
         height: 28,
         display: 'flex',

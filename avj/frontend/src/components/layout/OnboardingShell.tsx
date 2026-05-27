@@ -15,20 +15,20 @@ export function OnboardingShell({ children }: OnboardingShellProps) {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'var(--bg)',
-        padding: '0',
       }}
     >
-      {/* Desktop: ambient background */}
+      {/* Desktop: ambient glow */}
       <div
         className="hidden md:block"
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'radial-gradient(ellipse at 60% 30%, rgba(61,220,151,0.04) 0%, transparent 60%)',
+          background: 'radial-gradient(ellipse at 60% 30%, rgba(61,220,151,0.05) 0%, transparent 60%)',
           pointerEvents: 'none',
         }}
       />
 
+      {/* Card — full screen on mobile, phone frame on desktop */}
       <div
         style={{
           width: '100%',
@@ -42,6 +42,7 @@ export function OnboardingShell({ children }: OnboardingShellProps) {
         }}
         className="md:min-h-0 md:rounded-[40px] md:overflow-hidden md:shadow-2xl md:my-8"
       >
+        {/* StatusBar and HomeIndicator only appear when installed as PWA */}
         <StatusBar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {children}

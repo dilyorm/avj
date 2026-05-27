@@ -1,6 +1,6 @@
 """
 Spotify API integration.
-- OAuth PKCE-less flow (Authorization Code)
+- OAuth Authorization Code flow
 - Token refresh
 - Currently-playing polling
 """
@@ -20,9 +20,9 @@ settings = get_settings()
 
 SCOPES = "user-read-currently-playing user-read-playback-state user-read-recently-played"
 
-AUTH_URL    = "https://accounts.spotify.com/authorize"
-TOKEN_URL   = "https://accounts.spotify.com/api/token"
-API_BASE    = "https://api.spotify.com/v1"
+AUTH_URL = "https://accounts.spotify.com/authorize"
+TOKEN_URL = "https://accounts.spotify.com/api/token"
+API_BASE  = "https://api.spotify.com/v1"
 
 
 def get_auth_url(state: str) -> str:
@@ -32,6 +32,7 @@ def get_auth_url(state: str) -> str:
         "redirect_uri":  settings.spotify_redirect_uri,
         "scope":         SCOPES,
         "state":         state,
+        "show_dialog":   "true",   # force re-consent so scopes are always fresh
     }
     return f"{AUTH_URL}?{urlencode(params)}"
 
@@ -42,7 +43,6 @@ def _b64_creds() -> str:
 
 
 async def exchange_code(code: str) -> dict:
-    """Exchange auth code for access + refresh tokens."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             TOKEN_URL,
@@ -58,7 +58,6 @@ async def exchange_code(code: str) -> dict:
 
 
 async def refresh_token(refresh: str) -> dict:
-    """Get a fresh access token using the refresh token."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             TOKEN_URL,
@@ -73,19 +72,27 @@ async def refresh_token(refresh: str) -> dict:
 
 
 async def get_current_track(access_token: str) -> dict | None:
-    """
-    Returns dict with song/artist/album/platform or None if nothing playing.
-    Raises httpx.HTTPStatusError on auth errors (caller should refresh).
-    """
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{API_BASE}/me/player/currently-playing",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-    # 204 = nothing playing / private session
     if resp.status_code == 204:
+        return None  # nothing playing / private session
+
+    if resp.status_code == 403:
+        # Scope not granted or app in dev mode — log body so we can diagnose
+        log.warning(
+            "Spotify 403 on currently-playing — likely missing scope or "
+            "user not added in Dev Dashboard. Body: %s",
+            resp.text,
+        )
         return None
+
+    if resp.status_code == 401:
+        log.warning("Spotify 401 — token expired or revoked: %s", resp.text)
+        resp.raise_for_status()  # let poller handle refresh
 
     resp.raise_for_status()
 
@@ -105,17 +112,16 @@ async def get_current_track(access_token: str) -> dict | None:
         return f"{s // 60}:{s % 60:02d}"
 
     return {
-        "song":     item["name"],
-        "artist":   ", ".join(a["name"] for a in item["artists"]),
-        "album":    item["album"]["name"],
-        "platform": "spotify",
-        "mins":     f"{ms_to_min(progress_ms)} / {ms_to_min(duration_ms)}",
+        "song":       item["name"],
+        "artist":     ", ".join(a["name"] for a in item["artists"]),
+        "album":      item["album"]["name"],
+        "platform":   "spotify",
+        "mins":       f"{ms_to_min(progress_ms)} / {ms_to_min(duration_ms)}",
         "is_playing": data.get("is_playing", False),
     }
 
 
 async def get_recently_played(access_token: str, limit: int = 5) -> list[dict]:
-    """Get recently played tracks for history."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{API_BASE}/me/player/recently-played?limit={limit}",
@@ -128,15 +134,14 @@ async def get_recently_played(access_token: str, limit: int = 5) -> list[dict]:
     for item in items:
         track = item.get("track", {})
         result.append({
-            "song":     track.get("name", ""),
-            "artist":   ", ".join(a["name"] for a in track.get("artists", [])),
-            "album":    track["album"]["name"] if track.get("album") else "",
-            "platform": "spotify",
+            "song":      track.get("name", ""),
+            "artist":    ", ".join(a["name"] for a in track.get("artists", [])),
+            "album":     track["album"]["name"] if track.get("album") else "",
+            "platform":  "spotify",
             "played_at": item.get("played_at", ""),
         })
     return result
 
 
 def token_expires_at(expires_in: int) -> datetime:
-    """Given expires_in seconds, return the expiry datetime with 60s buffer."""
     return datetime.utcnow() + timedelta(seconds=expires_in - 60)
