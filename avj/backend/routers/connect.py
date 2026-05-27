@@ -144,6 +144,64 @@ async def disconnect_yandex(
     return ConnectStatusResponse(platform="yandex", connected=False)
 
 
+# ─── Debug ────────────────────────────────────────────────────────────────────
+
+@router.get("/yandex/debug-track")
+async def yandex_debug_track(current: User = Depends(get_current_user)):
+    """Dev-only: run get_current_track and return raw result + any error."""
+    if not current.yandex_token:
+        return {"error": "no_token"}
+    try:
+        from yandex_music import ClientAsync as YMClient
+        client = await YMClient(current.yandex_token).init()
+
+        # Step 1: queues
+        queues = await client.queues_list()
+        if not queues:
+            return {"step": "queues_list", "result": "empty", "queues": []}
+
+        queues_info = [{"id": q.id, "modified": q.modified} for q in queues]
+        latest = max(queues, key=lambda q: q.modified or "")
+
+        # Step 2: full queue
+        queue = await client.queue(latest.id)
+        if queue is None:
+            return {"step": "queue_fetch", "result": "None", "queues": queues_info}
+        if queue.current_index is None:
+            return {"step": "current_index", "result": "None", "queue_tracks_count": len(queue.tracks or [])}
+
+        idx = queue.current_index
+        tracks_count = len(queue.tracks or [])
+        if not queue.tracks or idx >= tracks_count:
+            return {"step": "track_index_out_of_range", "idx": idx, "tracks_count": tracks_count}
+
+        track_short = queue.tracks[idx]
+        track_id_str = (
+            f"{track_short.id}:{track_short.album_id}"
+            if hasattr(track_short, "album_id") and track_short.album_id
+            else str(track_short.id)
+        )
+
+        # Step 3: full track
+        tracks = await client.tracks([track_id_str])
+        if not tracks:
+            return {"step": "tracks_fetch", "result": "empty", "track_id": track_id_str}
+
+        track = tracks[0]
+        return {
+            "step": "success",
+            "song":    track.title,
+            "artist":  ", ".join(a.name for a in (track.artists or [])),
+            "album":   track.albums[0].title if track.albums else "",
+            "queues":  queues_info,
+            "current_index": idx,
+            "track_id": track_id_str,
+        }
+    except Exception as e:
+        import traceback
+        return {"step": "exception", "error": str(e), "traceback": traceback.format_exc()}
+
+
 # ─── Status ───────────────────────────────────────────────────────────────────
 
 @router.get("/status")
