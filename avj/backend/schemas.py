@@ -119,6 +119,10 @@ class ConnectYandexRequest(BaseModel):
     token: str
 
 
+class YandexDevicePollRequest(BaseModel):
+    device_code: str
+
+
 class ConnectStatusResponse(BaseModel):
     platform: str
     connected: bool

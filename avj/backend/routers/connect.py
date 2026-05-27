@@ -16,7 +16,7 @@ from auth import get_current_user
 from config import get_settings
 from database import get_db
 from models import User
-from schemas import ConnectYandexRequest, ConnectStatusResponse
+from schemas import ConnectYandexRequest, ConnectStatusResponse, YandexDevicePollRequest
 from services import spotify as sp_svc, yandex as ym_svc
 
 router = APIRouter(prefix="/api/connect", tags=["connect"])
@@ -85,6 +85,80 @@ async def disconnect_spotify(
 # ─── Yandex Music ─────────────────────────────────────────────────────────────
 
 YANDEX_AUTH_URL = "https://oauth.yandex.com/authorize"
+
+# Yandex Music Android app credentials (public, used by yandex-music-api library)
+_YM_CLIENT_ID     = "23cabbbdc6cd418abb4b39c32c41195d"
+_YM_CLIENT_SECRET = "53bc75238f0c4d08a118e51fe9203300"
+
+
+@router.post("/yandex/device")
+async def yandex_device_init(current: User = Depends(get_current_user)):
+    """
+    Start Yandex device auth flow.
+    Returns user_code (shown to user) + verification_url (user opens in browser) + device_code (for polling).
+    """
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://oauth.yandex.ru/device/code",
+            data={"client_id": _YM_CLIENT_ID},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(503, f"Yandex device auth unavailable: {resp.text}")
+    data = resp.json()
+    return {
+        "user_code":         data["user_code"],
+        # verification_url_complete has the code pre-filled — user just clicks Allow
+        "verification_url":  data.get("verification_url_complete") or data["verification_url"],
+        "device_code":       data["device_code"],
+        "expires_in":        data.get("expires_in", 300),
+        "interval":          data.get("interval", 5),
+    }
+
+
+@router.post("/yandex/device/poll")
+async def yandex_device_poll(
+    body: YandexDevicePollRequest,
+    current: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Poll for device auth completion.
+    Returns {status: "pending" | "connected" | "expired" | "error"}.
+    """
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://oauth.yandex.ru/token",
+            data={
+                "grant_type":    "device_code",
+                "code":          body.device_code,
+                "client_id":     _YM_CLIENT_ID,
+                "client_secret": _YM_CLIENT_SECRET,
+            },
+        )
+
+    if resp.status_code == 400:
+        error = resp.json().get("error", "")
+        if error in ("authorization_pending", "slow_down"):
+            return {"status": "pending"}
+        if error == "expired_token":
+            return {"status": "expired"}
+        return {"status": "error", "detail": error}
+
+    if resp.status_code != 200:
+        raise HTTPException(502, f"Yandex token error: {resp.text}")
+
+    token = resp.json().get("access_token")
+    if not token:
+        raise HTTPException(502, "No access_token in Yandex response")
+
+    # Validate token works for Music API
+    info = await ym_svc.validate_token(token)
+    if info is None:
+        raise HTTPException(400, "Token valid for Yandex but Music API unavailable — check Yandex Plus subscription")
+
+    current.yandex_token = token
+    await db.commit()
+    return {"status": "connected"}
 
 
 @router.get("/yandex/auth")
