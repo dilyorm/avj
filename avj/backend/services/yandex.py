@@ -1,6 +1,8 @@
 """
-Yandex Music integration via unofficial yandex-music Python library.
-Token: user provides manually (from browser cookies or Yandex OAuth).
+Yandex Music integration via yandex-music Python library.
+Token: Yandex OAuth access_token (NOT Session_id cookie).
+
+To get a token, the user authorizes via our OAuth flow at /api/connect/yandex/auth.
 """
 from __future__ import annotations
 
@@ -25,19 +27,20 @@ async def validate_token(token: str) -> dict | None:
         me = await client.account_status()
         account = me.account
         return {
-            "uid":      account.uid,
-            "login":    account.login,
-            "name":     account.full_name or account.login,
+            "uid":   account.uid,
+            "login": account.login,
+            "name":  account.full_name or account.login,
         }
     except Exception as e:
-        log.debug("Yandex token validation failed: %s", e)
+        log.warning("Yandex token validation failed: %s", e)
         return None
 
 
 async def get_current_track(token: str) -> dict | None:
     """
     Returns current track dict or None.
-    Uses the queues API — works when user is active in the Yandex Music app/web.
+    Uses queues API — selects the most recently modified queue as the active one.
+    Works when user is actively listening in Yandex Music app or web player.
     """
     if not YANDEX_AVAILABLE:
         return None
@@ -47,53 +50,87 @@ async def get_current_track(token: str) -> dict | None:
         if not queues:
             return None
 
-        queue_obj = await client.queue(queues[0].id)
-        idx = queue_obj.current_index
-        if idx is None or idx >= len(queue_obj.tracks):
+        # Most recently modified queue = active one
+        latest = max(queues, key=lambda q: q.modified or "")
+
+        # Fetch full queue with track list
+        queue = await client.queue(latest.id)
+        if queue is None or queue.current_index is None:
             return None
 
-        track_short = queue_obj.tracks[idx]
-        track = await track_short.fetch_track_async()
+        idx = queue.current_index
+        if not queue.tracks or idx >= len(queue.tracks):
+            return None
 
+        track_short = queue.tracks[idx]
+
+        # Build track ID string for fetch
+        track_id_str = f"{track_short.id}"
+        if hasattr(track_short, "album_id") and track_short.album_id:
+            track_id_str = f"{track_short.id}:{track_short.album_id}"
+
+        tracks = await client.tracks([track_id_str])
+        if not tracks:
+            return None
+
+        track = tracks[0]
         artists = ", ".join(a.name for a in (track.artists or []))
         album_title = track.albums[0].title if track.albums else ""
 
         return {
-            "song":     track.title,
-            "artist":   artists,
-            "album":    album_title,
-            "platform": "yandex",
-            "mins":     None,
+            "song":       track.title,
+            "artist":     artists,
+            "album":      album_title,
+            "platform":   "yandex",
+            "mins":       None,
             "is_playing": True,
         }
+
     except Exception as e:
         log.debug("Yandex get_current_track failed: %s", e)
         return None
 
 
 async def get_recently_played(token: str, limit: int = 5) -> list[dict]:
-    """Fallback: return liked tracks as 'recently played' approximation."""
+    """Return recently played tracks from the user's last queue."""
     if not YANDEX_AVAILABLE:
         return []
     try:
         client = await YMClient(token).init()
-        # Use feed or landing for recent tracks
-        landing = await client.landing("personalplaylists")
-        results: list[dict] = []
-        for block in (landing.blocks or []):
-            for entity in (block.entities or [])[:limit]:
-                data = entity.data
-                if hasattr(data, "data") and hasattr(data.data, "tracks"):
-                    for t in (data.data.tracks or [])[:2]:
-                        results.append({
-                            "song":     t.title,
-                            "artist":   ", ".join(a.name for a in (t.artists or [])),
-                            "album":    t.albums[0].title if t.albums else "",
-                            "platform": "yandex",
-                        })
-                        if len(results) >= limit:
-                            return results
-        return results
+        queues = await client.queues_list()
+        if not queues:
+            return []
+
+        latest = max(queues, key=lambda q: q.modified or "")
+        queue = await client.queue(latest.id)
+        if not queue or not queue.tracks:
+            return []
+
+        # Get tracks before the current index (recently played)
+        idx = queue.current_index or 0
+        track_shorts = queue.tracks[max(0, idx - limit):idx]
+        if not track_shorts:
+            track_shorts = queue.tracks[:min(limit, len(queue.tracks))]
+
+        ids = []
+        for t in track_shorts:
+            tid = f"{t.id}:{t.album_id}" if hasattr(t, "album_id") and t.album_id else str(t.id)
+            ids.append(tid)
+
+        if not ids:
+            return []
+
+        tracks = await client.tracks(ids)
+        result = []
+        for track in tracks:
+            result.append({
+                "song":     track.title,
+                "artist":   ", ".join(a.name for a in (track.artists or [])),
+                "album":    track.albums[0].title if track.albums else "",
+                "platform": "yandex",
+            })
+        return result[:limit]
+
     except Exception as e:
         log.debug("Yandex recently_played failed: %s", e)
         return []

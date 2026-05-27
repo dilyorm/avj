@@ -16,8 +16,13 @@ class Settings(BaseSettings):
     spotify_client_secret: str = ""
     spotify_redirect_uri: str = "http://localhost:8000/api/connect/spotify/callback"
 
-    # Yandex
+    # Yandex OAuth (create app at https://oauth.yandex.com/client/new)
+    # Platform: Web services
+    # Callback URI: https://avj.dilyor.dev/yandex-callback  (and http://localhost:5173/yandex-callback for dev)
+    # Permissions: login:info
     yandex_client_id: str = ""
+    yandex_client_secret: str = ""
+    yandex_redirect_uri: str = "http://localhost:5173/yandex-callback"
 
     # Background poller
     poll_interval: int = 30
@@ -37,6 +42,10 @@ class Settings(BaseSettings):
     @property
     def spotify_configured(self) -> bool:
         return bool(self.spotify_client_id and self.spotify_client_secret)
+
+    @property
+    def yandex_configured(self) -> bool:
+        return bool(self.yandex_client_id and self.yandex_client_secret)
 
 
 @lru_cache

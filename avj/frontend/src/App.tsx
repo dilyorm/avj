@@ -15,6 +15,7 @@ import { FriendProfileScreen } from './screens/FriendProfileScreen';
 import { AddFriendsScreen }    from './screens/AddFriendsScreen';
 import { MyProfileScreen }     from './screens/MyProfileScreen';
 import { SearchScreen }        from './screens/SearchScreen';
+import { YandexCallbackScreen } from './screens/YandexCallbackScreen';
 
 /** Redirect to /login if not authenticated */
 function Protected({ children }: { children: React.ReactNode }) {
@@ -56,8 +57,10 @@ export default function App() {
       <Route path="/register" element={<RegisterScreen />} />
 
       {/* Semi-public — after register, before full onboard */}
-      <Route path="/setup"   element={<Protected><ProfileSetupScreen /></Protected>} />
-      <Route path="/connect" element={<Protected><ConnectMusicScreen /></Protected>} />
+      <Route path="/setup"            element={<Protected><ProfileSetupScreen /></Protected>} />
+      <Route path="/connect"          element={<Protected><ConnectMusicScreen /></Protected>} />
+      {/* Yandex OAuth implicit flow callback — token arrives in URL hash */}
+      <Route path="/yandex-callback"  element={<Protected><YandexCallbackScreen /></Protected>} />
 
       {/* Protected app routes — wrapped in FeedProvider for real-time data */}
       <Route path="/home" element={
