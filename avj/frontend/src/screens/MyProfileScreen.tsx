@@ -245,7 +245,7 @@ export function MyProfileScreen() {
           <ConnectRow
             platform="yandex"
             name="Yandex Music"
-            sub={user.yandex ? 'Ulangan' : yandexLoading ? 'Yo\'naltirilmoqda...' : 'Plus obunasi tavsiya etiladi'}
+            sub={user.yandex ? 'Ulangan' : 'Token orqali ulanish'}
             connected={user.yandex}
             onConnect={() => setShowYandexModal(true)}
             onDisconnect={user.yandex ? handleYandexDisconnect : undefined}
