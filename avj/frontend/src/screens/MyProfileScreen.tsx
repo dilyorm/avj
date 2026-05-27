@@ -153,6 +153,23 @@ export function MyProfileScreen() {
     await refreshUser();
   };
 
+  const [shareToast, setShareToast] = useState('');
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/friend/${user.id}`;
+    const text = `avj. — ${user.name} (@${user.handle}) ning musiqa lentasini ko'ring`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'avj.', text, url }); return; } catch { /* cancelled */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareToast('Havola nusxalandi!');
+    } catch {
+      setShareToast(url);
+    }
+    setTimeout(() => setShareToast(''), 2500);
+  };
+
   const handleYandexDisconnect = async () => {
     try {
       await api.delete('/connect/yandex');
@@ -290,7 +307,12 @@ export function MyProfileScreen() {
 
         {/* Actions */}
         <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Button variant="ghost" size="md" icon="share">Profilni ulashish</Button>
+          <Button variant="ghost" size="md" icon="share" onClick={handleShare}>Profilni ulashish</Button>
+          {shareToast && (
+            <div style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+              {shareToast}
+            </div>
+          )}
           <Button
             variant="ghost"
             size="md"
