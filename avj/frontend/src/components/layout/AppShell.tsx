@@ -35,33 +35,39 @@ function RightPanel() {
         Sening lenta
       </div>
 
-      {/* Now playing card */}
-      {user?.now ? (
-        <div
-          style={{
-            borderRadius: 18,
-            background: 'var(--surface)',
-            border: '1px solid var(--hairline)',
-            padding: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Waveform bars={3} height={10} />
-            <PlatformTag platform={user.now.platform as 'spotify' | 'yandex'} />
-          </div>
-          <Album name={user.now.album} artist={user.now.artist} size={220} radius={14} style={{ width: '100%', height: 200 }} />
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.2 }}>{user.now.song}</div>
-            <div style={{ marginTop: 3, fontSize: 12, color: 'var(--text-muted)' }}>
-              {user.now.artist}
-              {user.now.album && <span style={{ color: 'var(--text-dim)' }}> · {user.now.album}</span>}
+      {/* Now playing / last played card */}
+      {(user?.now || user?.last_played) ? (() => {
+        const track = user.now ?? user.last_played!;
+        const isLive = !!user.now;
+        return (
+          <div
+            style={{
+              borderRadius: 18,
+              background: 'var(--surface)',
+              border: `1px solid ${isLive ? 'var(--accent-dim)' : 'var(--hairline)'}`,
+              padding: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {isLive ? <Waveform bars={3} height={10} /> : (
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>Oxirgi</span>
+              )}
+              <PlatformTag platform={track.platform as 'spotify' | 'yandex'} />
+            </div>
+            <Album name={track.album} artist={track.artist} size={220} radius={14} style={{ width: '100%', height: 200 }} />
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.2 }}>{track.song}</div>
+              <div style={{ marginTop: 3, fontSize: 12, color: 'var(--text-muted)' }}>
+                {track.artist}
+                {track.album && <span style={{ color: 'var(--text-dim)' }}> · {track.album}</span>}
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
+        );
+      })() : (
         <div
           style={{
             borderRadius: 18,
@@ -75,11 +81,15 @@ function RightPanel() {
             textAlign: 'center',
           }}
         >
-          <div style={{ fontSize: 28 }}>🎵</div>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M9 18V6l11-3v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="15" r="3"/>
+            </svg>
+          </div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Hozir hech narsa</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             {user?.spotify || user?.yandex
-              ? 'Spotify yoki Yandex Musicni oching va qo\'shiq tinglang'
+              ? 'Musiqa ilovani oching va tinglang'
               : 'Musiqa hisobini ulang'}
           </div>
           {!user?.spotify && !user?.yandex && (

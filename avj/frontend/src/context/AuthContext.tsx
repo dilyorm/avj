@@ -21,6 +21,7 @@ export interface AuthUser {
   friend_count: number;
   track_count: number;
   now: { song: string; artist: string; album: string; platform: string } | null;
+  last_played: { song: string; artist: string; album: string; platform: string } | null;
 }
 
 interface AuthCtx {

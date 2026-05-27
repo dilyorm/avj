@@ -1,16 +1,78 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
 import { SectionHeader } from '../components/layout/SectionHeader';
 import { Avatar } from '../components/ui/Avatar';
-import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
 import { api } from '../services/api';
 import type { FriendData } from '../context/FeedContext';
 
-function SuggestionRow({ user, added, onAdd }: { user: FriendData; added: boolean; onAdd: () => void }) {
+type FS = 'none' | 'pending_sent' | 'pending_received' | 'friends';
+
+function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' | 'accept' | 'cancel') => void }) {
+  if (status === 'friends') {
+    return (
+      <span style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font)' }}>
+        Do'st
+      </span>
+    );
+  }
+  if (status === 'pending_sent') {
+    return (
+      <button
+        onClick={e => { e.stopPropagation(); onAction('cancel'); }}
+        style={{ padding: '6px 12px', borderRadius: 10, background: 'transparent', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)' }}
+      >
+        Bekor qilish
+      </button>
+    );
+  }
+  if (status === 'pending_received') {
+    return (
+      <button
+        onClick={e => { e.stopPropagation(); onAction('accept'); }}
+        style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
+      >
+        Qabul
+      </button>
+    );
+  }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+    <button
+      onClick={e => { e.stopPropagation(); onAction('add'); }}
+      style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
+    >
+      + Qo'sh
+    </button>
+  );
+}
+
+function UserRow({ user, onNavigate }: { user: FriendData; onNavigate: (id: string) => void }) {
+  const [status, setStatus] = useState<FS>((user.friendship_status ?? 'none') as FS);
+
+  const handleAction = useCallback(async (action: 'add' | 'accept' | 'cancel') => {
+    try {
+      if (action === 'add') {
+        const r = await api.post<{ status: string }>(`/friends/${user.id}/add`, {});
+        setStatus(r.status as FS);
+      } else if (action === 'accept') {
+        await api.post(`/friends/${user.id}/accept`, {});
+        setStatus('friends');
+      } else {
+        await api.post(`/friends/${user.id}/reject`, {});
+        setStatus('none');
+      }
+    } catch { /* ignore */ }
+  }, [user.id]);
+
+  return (
+    <div
+      onClick={() => onNavigate(user.id)}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', cursor: 'pointer' }}
+      onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)')}
+      onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+    >
       <Avatar name={user.name} size={42} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>{user.name}</div>
@@ -18,42 +80,19 @@ function SuggestionRow({ user, added, onAdd }: { user: FriendData; added: boolea
           @{user.handle}
         </div>
       </div>
-      {added ? (
-        <button
-          style={{
-            padding: '7px 12px',
-            borderRadius: 10,
-            background: 'transparent',
-            color: 'var(--text-muted)',
-            border: '1px solid var(--hairline)',
-            fontFamily: 'var(--font)',
-            fontWeight: 600,
-            fontSize: 12,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            cursor: 'default',
-            flexShrink: 0,
-          }}
-        >
-          <Icon name="check" size={14} stroke="var(--accent)" sw={2.4} /> Qo'shildi
-        </button>
-      ) : (
-        <Button variant="primary" size="sm" full={false} onClick={onAdd}>+ Qo'sh</Button>
-      )}
+      <RequestButton status={status} onAction={handleAction} />
     </div>
   );
 }
 
 export function AddFriendsScreen() {
-  const [added, setAdded] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<FriendData[]>([]);
   const [searchResults, setSearchResults] = useState<FriendData[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [searching, setSearching] = useState(false);
 
-  // Load suggestions on mount
   useEffect(() => {
     api.get<FriendData[]>('/suggestions')
       .then(setSuggestions)
@@ -61,136 +100,50 @@ export function AddFriendsScreen() {
       .finally(() => setLoadingSuggestions(false));
   }, []);
 
-  // Debounced search
   useEffect(() => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    if (!query.trim()) { setSearchResults([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       try {
         const results = await api.get<FriendData[]>(`/search?q=${encodeURIComponent(query.trim())}`);
         setSearchResults(results);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
     }, 350);
     return () => clearTimeout(t);
   }, [query]);
-
-  const handleAdd = useCallback(async (userId: string) => {
-    try {
-      await api.post(`/friends/${userId}/add`, {});
-      setAdded(prev => new Set([...prev, userId]));
-    } catch {
-      // Still mark as added optimistically if 409 conflict (already friends)
-      setAdded(prev => new Set([...prev, userId]));
-    }
-  }, []);
 
   const displayList = query.trim() ? searchResults : suggestions;
 
   return (
     <AppShell>
-      <ScreenHeader
-        title="Do'st qo'shish"
-        right={
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 4 }}>
-            <Icon name="qr" size={22} stroke="var(--text)" sw={1.6} />
-          </button>
-        }
-      />
+      <ScreenHeader title="Do'st qo'shish" />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Search */}
+        {/* Search bar */}
         <div style={{ padding: '0 16px 12px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '12px 14px',
-              borderRadius: 14,
-              background: 'var(--surface)',
-              border: '1px solid var(--hairline)',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
             <Icon name="search" size={18} stroke="var(--text-muted)" sw={1.8} />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Ism yoki @username"
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                fontSize: 14,
-                color: 'var(--text)',
-                fontFamily: 'var(--font)',
-              }}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font)' }}
             />
             {query && (
-              <button
-                onClick={() => setQuery('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}
-              >
+              <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
                 <Icon name="close" size={16} stroke="var(--text-muted)" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Telegram import banner */}
-        {!query && (
-          <div style={{ padding: '0 16px 16px' }}>
-            <div
-              style={{
-                padding: 14,
-                borderRadius: 14,
-                background: 'var(--surface)',
-                border: '1px solid var(--hairline)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  background: 'var(--surface-2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Icon name="tg" size={20} stroke="var(--text)" sw={1.6} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2 }}>
-                  Telegram kontaktlardan top
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Tanishlaringni Avj-da top
-                </div>
-              </div>
-              <Button variant="accent" size="sm" full={false}>Ulanish</Button>
-            </div>
-          </div>
-        )}
-
         <SectionHeader title={query.trim() ? 'Qidiruv natijalari' : 'Sen uchun tavsiya'} />
 
         <div style={{ flex: 1, overflowY: 'auto' }} className="no-scrollbar">
           {(loadingSuggestions && !query) || searching ? (
             <div style={{ padding: '20px 20px' }}>
-              {[0, 1, 2].map(i => (
+              {[0, 1, 3].map(i => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
                   <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--surface-3)', animation: 'avj-fade-up 1s ease-in-out infinite alternate' }} />
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -211,12 +164,7 @@ export function AddFriendsScreen() {
             </div>
           ) : (
             displayList.map(u => (
-              <SuggestionRow
-                key={u.id}
-                user={u}
-                added={added.has(u.id)}
-                onAdd={() => handleAdd(u.id)}
-              />
+              <UserRow key={u.id} user={u} onNavigate={id => navigate(`/friend/${id}`)} />
             ))
           )}
           <div style={{ height: 16 }} />

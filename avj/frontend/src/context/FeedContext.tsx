@@ -28,6 +28,8 @@ export interface FriendData {
   album: string | null;
   spotify: boolean;
   yandex: boolean;
+  is_private?: boolean;
+  friendship_status: 'none' | 'pending_sent' | 'pending_received' | 'friends';
   recent: Array<{
     id: string;
     song: string;

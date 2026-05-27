@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
@@ -7,15 +8,16 @@ import { Avatar } from '../components/ui/Avatar';
 import { Waveform } from '../components/ui/Waveform';
 import { EmptyArt } from '../components/ui/EmptyArt';
 import { Button } from '../components/ui/Button';
+import { Icon } from '../components/ui/Icon';
 import { useFeed } from '../context/FeedContext';
 import { useAuth } from '../context/AuthContext';
-
-const FILTER_ITEMS = ['Hammasi', 'Hozir', "Do'stlar", "O'zbek", 'РУС'];
+import { api } from '../services/api';
+import type { FriendData } from '../context/FeedContext';
 
 function FilterStrip() {
   return (
     <div style={{ flexShrink: 0, padding: '0 16px 12px', display: 'flex', gap: 6, overflowX: 'auto' }} className="no-scrollbar">
-      {FILTER_ITEMS.map((t, i) => (
+      {['Hammasi', 'Hozir', "Do'stlar"].map((t, i) => (
         <span key={t} style={{
           padding: '7px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
           whiteSpace: 'nowrap', background: i === 0 ? 'var(--text)' : 'transparent',
@@ -46,13 +48,78 @@ function SkeletonCard() {
   );
 }
 
+function FriendRequestRow({ req, onAccept, onReject }: {
+  req: FriendData;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+      <Avatar name={req.name} size={42} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>{req.name}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>@{req.handle}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <button
+          disabled={loading}
+          onClick={async () => { setLoading(true); try { await api.post(`/friends/${req.id}/accept`, {}); onAccept(); } catch { setLoading(false); } }}
+          style={{ padding: '7px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
+        >
+          Qabul
+        </button>
+        <button
+          disabled={loading}
+          onClick={async () => { setLoading(true); try { await api.post(`/friends/${req.id}/reject`, {}); onReject(); } catch { setLoading(false); } }}
+          style={{ padding: '7px 12px', borderRadius: 10, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}
+        >
+          Rad
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OfflineFriendRow({ f, onClick }: { f: FriendData; onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', cursor: 'pointer' }}
+      onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)')}
+      onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.background = 'transparent')}
+    >
+      <Avatar name={f.name} size={42} live={false} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>{f.name}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>hozir tinglayotgani yo'q</div>
+      </div>
+      <Icon name="chev" size={16} stroke="var(--text-dim)" />
+    </div>
+  );
+}
+
 export function HomeCardsScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { friends, loading, error, reload } = useFeed();
+  const [requests, setRequests] = useState<FriendData[]>([]);
 
-  const live = friends.filter(f => f.status === 'live');
-  const past = friends.filter(f => f.status === 'past');
+  useEffect(() => {
+    api.get<FriendData[]>('/friend-requests').then(setRequests).catch(() => {});
+  }, []);
+
+  const handleAccept = (id: string) => {
+    setRequests(prev => prev.filter(r => r.id !== id));
+    reload(); // refresh friends list
+  };
+  const handleReject = (id: string) => {
+    setRequests(prev => prev.filter(r => r.id !== id));
+  };
+
+  const live    = friends.filter(f => f.status === 'live');
+  const recent  = friends.filter(f => f.status === 'past' && f.song);
+  const offline = friends.filter(f => f.status === 'past' && !f.song);
 
   return (
     <AppShell>
@@ -76,7 +143,26 @@ export function HomeCardsScreen() {
           </div>
         )}
 
-        {!loading && !error && friends.length === 0 && (
+        {/* Friend requests */}
+        {requests.length > 0 && (
+          <>
+            <SectionHeader
+              title={`Do'stlik so'rovlari · ${requests.length}`}
+              style={{ marginTop: 4 }}
+            />
+            {requests.map(req => (
+              <FriendRequestRow
+                key={req.id}
+                req={req}
+                onAccept={() => handleAccept(req.id)}
+                onReject={() => handleReject(req.id)}
+              />
+            ))}
+          </>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && friends.length === 0 && requests.length === 0 && (
           <div style={{ flex: 1, padding: '48px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
             <EmptyArt glyph="globe" />
             <div>
@@ -91,6 +177,7 @@ export function HomeCardsScreen() {
           </div>
         )}
 
+        {/* Live */}
         {!loading && live.length > 0 && (
           <>
             <SectionHeader title={`Hozir tinglashmoqda · ${live.length}`} action={<Waveform bars={3} height={11} />} />
@@ -109,11 +196,12 @@ export function HomeCardsScreen() {
           </>
         )}
 
-        {!loading && past.length > 0 && (
+        {/* Recently listened */}
+        {!loading && recent.length > 0 && (
           <>
-            <SectionHeader title="Yaqinda" style={{ marginTop: 20 }} />
+            <SectionHeader title="Yaqinda tingladi" style={{ marginTop: 20 }} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[10px] px-4 md:px-0">
-              {past.map((f, i) => (
+              {recent.map((f, i) => (
                 <div key={f.id} style={{ animation: `avj-fade-up 0.4s ease-out ${i * 60}ms both` }}>
                   <ListeningCard
                     friend={f.name} song={f.song ?? ''} artist={f.artist ?? ''}
@@ -124,6 +212,16 @@ export function HomeCardsScreen() {
                 </div>
               ))}
             </div>
+          </>
+        )}
+
+        {/* Offline friends */}
+        {!loading && offline.length > 0 && (
+          <>
+            <SectionHeader title="Do'stlar" style={{ marginTop: 20 }} />
+            {offline.map(f => (
+              <OfflineFriendRow key={f.id} f={f} onClick={() => navigate(`/friend/${f.id}`)} />
+            ))}
           </>
         )}
       </div>
