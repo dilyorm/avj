@@ -275,6 +275,37 @@ export function MyProfileScreen() {
               <Waveform bars={3} height={14} />
             </div>
           </div>
+        ) : history.length > 0 && !historyLoading ? (
+          <div style={{ padding: '0 16px 14px' }}>
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 16,
+                background: 'var(--surface)',
+                border: '1px solid var(--hairline)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                opacity: 0.8,
+              }}
+            >
+              <Album name={history[0].album} artist={history[0].artist} size={56} radius={8} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
+                    OXIRGI TINGLANGAN
+                  </span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {history[0].song}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {history[0].artist}
+                </div>
+              </div>
+              <Icon name="history" size={18} stroke="var(--text-muted)" sw={1.6} />
+            </div>
+          </div>
         ) : (
           <div style={{ padding: '0 16px 14px' }}>
             <div style={{ padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px dashed var(--hairline)', display: 'flex', alignItems: 'center', gap: 12 }}>

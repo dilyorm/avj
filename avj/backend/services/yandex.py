@@ -45,8 +45,8 @@ async def validate_token(token: str) -> dict | None:
 async def get_current_track(token: str) -> dict | None:
     """
     Returns current track dict or None.
-    Uses queues API — selects the most recently modified queue as the active one.
-    Works when user is actively listening in Yandex Music app or web player.
+    Uses queues API — works when Yandex Music mobile/desktop app has an active queue.
+    Returns None for web browser playback (web player does not push queues to API).
     """
     if not YANDEX_AVAILABLE:
         return None
