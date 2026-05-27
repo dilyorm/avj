@@ -229,7 +229,29 @@ async def yandex_debug_track(current: User = Depends(get_current_user)):
         # Step 1: queues
         queues = await client.queues_list()
         if not queues:
-            return {"step": "queues_list", "result": "empty", "queues": []}
+            # Fallback: check music_history to see what data is available
+            try:
+                history = await client.music_history(full_models_count=3)
+                history_data = []
+                if history and history.history_tabs:
+                    for tab in history.history_tabs[:1]:  # today only
+                        for group in (tab.items or []):
+                            for item in (group.tracks or []):
+                                if item.type == "track" and item.data and item.data.full_model:
+                                    t = item.data.full_model
+                                    history_data.append({
+                                        "song": t.title,
+                                        "artist": ", ".join(a.name for a in (t.artists or [])),
+                                        "album": t.albums[0].title if t.albums else "",
+                                    })
+                return {
+                    "step": "queues_list",
+                    "result": "empty — web browser player doesn't create API queues. Use Yandex Music mobile/desktop app.",
+                    "music_history_today": history_data[:5],
+                }
+            except Exception as he:
+                return {"step": "queues_list", "result": "empty", "history_error": str(he)}
+
 
         queues_info = [{"id": q.id, "modified": q.modified} for q in queues]
         latest = max(queues, key=lambda q: q.modified or "")
