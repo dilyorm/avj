@@ -4,7 +4,7 @@ export type IconName =
   | 'back' | 'close' | 'share' | 'settings' | 'plus' | 'check'
   | 'search' | 'qr' | 'chev' | 'play' | 'spark' | 'note' | 'heart'
   | 'globe' | 'tg' | 'logout' | 'history' | 'sun' | 'moon' | 'mute'
-  | 'home' | 'user' | 'music';
+  | 'home' | 'user' | 'music' | 'refresh';
 
 interface IconProps {
   name: IconName;
@@ -78,6 +78,8 @@ export function Icon({ name, size = 18, stroke = 'currentColor', sw = 1.8, style
       return <svg {...p}><circle cx="12" cy="8" r="3.5" stroke={stroke} strokeWidth={sw} /><path d="M4 19c1.5-3.5 4-5 8-5s6.5 1.5 8 5" {...s} /></svg>;
     case 'music':
       return <svg {...p}><path d="M9 18V6l11-3v12" stroke={stroke} strokeWidth={sw} strokeLinejoin="round" /><circle cx="6" cy="18" r="3" stroke={stroke} strokeWidth={sw} /><circle cx="17" cy="15" r="3" stroke={stroke} strokeWidth={sw} /></svg>;
+    case 'refresh':
+      return <svg {...p}><path d="M4 4v5h5M20 20v-5h-5" {...s} /><path d="M4.1 9A9 9 0 0 1 19 7.2M19.9 15A9 9 0 0 1 5 16.8" {...s} /></svg>;
     default:
       return null;
   }

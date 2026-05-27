@@ -107,6 +107,13 @@ function StatusPill({ label, active, onClick }: { label: string; active: boolean
 }
 
 
+interface HistoryTrack {
+  song: string;
+  artist: string;
+  album: string;
+  platform: 'spotify' | 'yandex';
+}
+
 export function MyProfileScreen() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -115,8 +122,28 @@ export function MyProfileScreen() {
   const [visible, setVisible] = useState(user?.visible ?? true);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
   const [showYandexModal, setShowYandexModal] = useState(false);
+  const [history, setHistory] = useState<HistoryTrack[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   if (!user) return null;
+
+  const hasMusic = user.spotify || user.yandex;
+
+  const fetchHistory = async () => {
+    if (!hasMusic) return;
+    setHistoryLoading(true);
+    try {
+      const res = await api.get<{ tracks: HistoryTrack[] }>('/me/history?limit=20');
+      setHistory(res.tracks);
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => { fetchHistory(); }, [user.spotify, user.yandex]);
 
   const handleVisibility = async (val: boolean) => {
     setVisible(val);
@@ -303,7 +330,56 @@ export function MyProfileScreen() {
           </div>
         )}
 
-        <div style={{ flex: 1 }} />
+        {/* Listening history */}
+        {hasMusic && (
+          <>
+            <SectionHeader
+              title="Oxirgi tinglangan"
+              action={
+                <button
+                  onClick={fetchHistory}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}
+                >
+                  <Icon name="refresh" size={14} sw={1.8} />
+                </button>
+              }
+            />
+            <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {historyLoading && (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} style={{ padding: '10px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface-2)', flexShrink: 0, animation: 'avj-pulse 1.4s ease-in-out infinite' }} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ height: 12, width: '60%', borderRadius: 4, background: 'var(--surface-2)', animation: 'avj-pulse 1.4s ease-in-out infinite' }} />
+                      <div style={{ height: 10, width: '40%', borderRadius: 4, background: 'var(--surface-2)', animation: 'avj-pulse 1.4s ease-in-out infinite' }} />
+                    </div>
+                  </div>
+                ))
+              )}
+              {!historyLoading && history.length === 0 && (
+                <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                  Tarix topilmadi
+                </div>
+              )}
+              {!historyLoading && history.map((t, i) => (
+                <div key={i} style={{ padding: '9px 0', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < history.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
+                  <Album name={t.album} artist={t.artist} size={40} radius={6} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t.song}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {t.artist}
+                    </div>
+                  </div>
+                  <PlatformTag platform={t.platform} size="sm" />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ flex: 1, minHeight: 16 }} />
 
         {/* Actions */}
         <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>

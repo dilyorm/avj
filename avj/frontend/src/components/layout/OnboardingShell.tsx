@@ -28,11 +28,11 @@ export function OnboardingShell({ children }: OnboardingShellProps) {
         }}
       />
 
-      {/* Card — full screen on mobile, phone frame on desktop */}
+      {/* Card — full screen on mobile, centered card on desktop */}
       <div
         style={{
           width: '100%',
-          maxWidth: 390,
+          maxWidth: 480,
           minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
@@ -40,7 +40,7 @@ export function OnboardingShell({ children }: OnboardingShellProps) {
           position: 'relative',
           overflow: 'hidden',
         }}
-        className="md:min-h-0 md:rounded-[40px] md:overflow-hidden md:shadow-2xl md:my-8"
+        className="md:min-h-0 md:rounded-[24px] md:overflow-hidden md:shadow-xl md:my-10 md:border md:border-[var(--hairline)]"
       >
         {/* StatusBar and HomeIndicator only appear when installed as PWA */}
         <StatusBar />

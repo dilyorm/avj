@@ -133,7 +133,7 @@ export function WelcomeScreen() {
           <Button variant="primary" size="lg" onClick={() => navigate('/setup')}>
             Boshlash
           </Button>
-          <Button variant="ghost" size="md" onClick={() => navigate('/home')}>
+          <Button variant="ghost" size="md" onClick={() => navigate('/login')}>
             Hisobim bor — kirish
           </Button>
           <div

@@ -97,45 +97,38 @@ async def get_current_track(token: str) -> dict | None:
         return None
 
 
-async def get_recently_played(token: str, limit: int = 5) -> list[dict]:
-    """Return recently played tracks from the user's last queue."""
+async def get_recently_played(token: str, limit: int = 10) -> list[dict]:
+    """
+    Return recently played tracks from music_history.
+    Works for both web browser and mobile/desktop app playback.
+    """
     if not YANDEX_AVAILABLE:
         return []
     try:
         client = await YMClient(token).init()
-        queues = await client.queues_list()
-        if not queues:
+        history = await client.music_history(full_models_count=limit)
+        if not history or not history.history_tabs:
             return []
 
-        latest = max(queues, key=lambda q: q.modified or "")
-        queue = await client.queue(latest.id)
-        if not queue or not queue.tracks:
-            return []
-
-        # Get tracks before the current index (recently played)
-        idx = queue.current_index or 0
-        track_shorts = queue.tracks[max(0, idx - limit):idx]
-        if not track_shorts:
-            track_shorts = queue.tracks[:min(limit, len(queue.tracks))]
-
-        ids = []
-        for t in track_shorts:
-            tid = f"{t.id}:{t.album_id}" if hasattr(t, "album_id") and t.album_id else str(t.id)
-            ids.append(tid)
-
-        if not ids:
-            return []
-
-        tracks = await client.tracks(ids)
         result = []
-        for track in tracks:
-            result.append({
-                "song":     track.title,
-                "artist":   ", ".join(a.name for a in (track.artists or [])),
-                "album":    track.albums[0].title if track.albums else "",
-                "platform": "yandex",
-            })
-        return result[:limit]
+        for tab in history.history_tabs:          # tabs = days, newest first
+            for group in (tab.items or []):
+                for item in (group.tracks or []):
+                    if item.type != "track":
+                        continue
+                    if not item.data or not item.data.full_model:
+                        continue
+                    t = item.data.full_model
+                    result.append({
+                        "song":     t.title,
+                        "artist":   ", ".join(a.name for a in (t.artists or [])),
+                        "album":    t.albums[0].title if t.albums else "",
+                        "platform": "yandex",
+                    })
+                    if len(result) >= limit:
+                        return result
+
+        return result
 
     except Exception as e:
         log.debug("Yandex recently_played failed: %s", e)
