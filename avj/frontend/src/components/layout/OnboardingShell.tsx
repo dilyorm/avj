@@ -17,30 +17,36 @@ export function OnboardingShell({ children }: OnboardingShellProps) {
         background: 'var(--bg)',
       }}
     >
-      {/* Desktop: ambient glow */}
+      {/* Ambient glow — desktop only */}
       <div
         className="hidden md:block"
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'radial-gradient(ellipse at 60% 30%, rgba(61,220,151,0.05) 0%, transparent 60%)',
+          background:
+            'radial-gradient(ellipse at 60% 30%, rgba(61,220,151,0.05) 0%, transparent 60%)',
           pointerEvents: 'none',
+          zIndex: 0,
         }}
       />
 
-      {/* Card — full screen on mobile, centered card on desktop */}
+      {/*
+        Card:
+        - Mobile: full viewport height, no rounding
+        - Desktop (md+): auto height, max 480px wide, rounded card with shadow
+        All responsive overrides in Tailwind classes — NOT in inline style,
+        because inline styles always win over Tailwind and break responsive variants.
+      */}
       <div
-        style={{
-          width: '100%',
-          maxWidth: 480,
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--bg)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-        className="md:min-h-0 md:rounded-[24px] md:overflow-hidden md:shadow-xl md:my-10 md:border md:border-[var(--hairline)]"
+        className={[
+          // base (mobile)
+          'relative flex flex-col w-full overflow-hidden',
+          'min-h-[100dvh]',
+          // desktop override
+          'md:min-h-0 md:max-w-[480px] md:rounded-[24px] md:shadow-xl',
+          'md:my-10 md:border md:border-[var(--hairline)]',
+        ].join(' ')}
+        style={{ background: 'var(--bg)', zIndex: 1 }}
       >
         {/* StatusBar and HomeIndicator only appear when installed as PWA */}
         <StatusBar />
