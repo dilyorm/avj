@@ -1,0 +1,199 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { OnboardingShell } from '../components/layout/OnboardingShell';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
+import { Button } from '../components/ui/Button';
+import { ConnectRow } from '../components/ui/ConnectRow';
+import { Icon } from '../components/ui/Icon';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+
+/** Bottom sheet for Yandex token input */
+function YandexSheet({ onClose, onSave }: { onClose: () => void; onSave: (token: string) => Promise<void> }) {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!token.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await onSave(token.trim());
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Token noto\'g\'ri');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.5)', display: 'flex',
+        alignItems: 'flex-end', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: 'var(--bg)',
+          borderRadius: '22px 22px 0 0',
+          padding: '20px 20px 36px',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--hairline)', margin: '0 auto' }} />
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>Yandex Music token</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          music.yandex.ru saytiga kiring → F12 → Application → Cookies → <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--surface)', padding: '1px 4px', borderRadius: 4 }}>Session_id</span> qiymatini ko'chiring.
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>
+            SESSION TOKEN
+          </div>
+          <input
+            value={token}
+            onChange={e => setToken(e.target.value)}
+            placeholder="Session_id yoki tokenni kiriting"
+            style={{
+              width: '100%', background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 13.5, color: 'var(--text)', fontFamily: 'var(--font-mono)', padding: 0,
+            }}
+          />
+        </div>
+
+        <Button variant="primary" size="lg" disabled={loading || !token.trim()} onClick={handleSave}>
+          {loading ? 'Tekshirilmoqda...' : 'Ulash'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function ConnectMusicScreen() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, refreshUser } = useAuth();
+
+  const [showYandexSheet, setShowYandexSheet] = useState(false);
+  const [spotifyLoading, setSpotifyLoading] = useState(false);
+
+  // After Spotify OAuth redirect — refresh user data
+  useEffect(() => {
+    if (searchParams.get('spotify') === 'connected') {
+      refreshUser();
+    }
+  }, []);
+
+  const spotifyConnected = user?.spotify ?? false;
+  const yandexConnected = user?.yandex ?? false;
+  const anyConnected = spotifyConnected || yandexConnected;
+
+  const handleSpotifyConnect = async () => {
+    setSpotifyLoading(true);
+    try {
+      const res = await api.get<{ url: string }>('/connect/spotify/auth');
+      window.location.href = res.url;
+    } catch {
+      setSpotifyLoading(false);
+    }
+  };
+
+  const handleYandexSave = async (token: string) => {
+    await api.post('/connect/yandex', { token });
+    await refreshUser();
+  };
+
+  return (
+    <OnboardingShell>
+      <ScreenHeader
+        left={
+          <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 4 }}>
+            <Icon name="back" size={22} stroke="var(--text)" />
+          </button>
+        }
+        right={
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>3 / 3</div>
+        }
+      />
+
+      <div style={{ flex: 1, padding: '4px 24px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1.1 }}>
+            Musiqa hisobingni ula
+          </div>
+          <div style={{ marginTop: 8, fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: 320 }}>
+            Sen tinglagan tracklar do'stlaring lentasida ko'rinadi. Istalgan paytda o'chirib qo'yishing mumkin.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+          <ConnectRow
+            platform="spotify"
+            name="Spotify"
+            sub={spotifyConnected ? 'Ulangan' : spotifyLoading ? 'Yo\'naltirilmoqda...' : 'Premium yoki Free — farqi yo\'q'}
+            connected={spotifyConnected}
+            onConnect={handleSpotifyConnect}
+          />
+          <ConnectRow
+            platform="yandex"
+            name="Yandex Music"
+            sub={yandexConnected ? 'Ulangan' : 'Plus obunasi tavsiya etiladi'}
+            connected={yandexConnected}
+            onConnect={() => setShowYandexSheet(true)}
+          />
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Privacy note */}
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: 'var(--surface)',
+            border: '1px solid var(--hairline)',
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}
+        >
+          <Icon name="settings" size={16} stroke="var(--text-muted)" sw={1.5} style={{ marginTop: 2, flexShrink: 0 }} />
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Avj sening parolingni saqlamaydi. Faqat hozirgi tracking nomini o'qiymiz.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {anyConnected && (
+            <Button variant="primary" size="lg" onClick={() => navigate('/home')}>
+              Boshlash →
+            </Button>
+          )}
+          <Button variant="ghost" size="md" onClick={() => navigate('/home')}>
+            Hozircha o'tkazib yuborish
+          </Button>
+        </div>
+      </div>
+
+      {showYandexSheet && (
+        <YandexSheet
+          onClose={() => setShowYandexSheet(false)}
+          onSave={handleYandexSave}
+        />
+      )}
+    </OnboardingShell>
+  );
+}

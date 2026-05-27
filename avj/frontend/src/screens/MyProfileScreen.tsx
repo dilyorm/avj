@@ -1,0 +1,324 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AppShell } from '../components/layout/AppShell';
+import { ScreenHeader } from '../components/layout/ScreenHeader';
+import { SectionHeader } from '../components/layout/SectionHeader';
+import { Avatar } from '../components/ui/Avatar';
+import { Album } from '../components/ui/Album';
+import { LiveChip } from '../components/ui/LiveChip';
+import { PlatformTag } from '../components/ui/PlatformTag';
+import { PulseRing } from '../components/ui/PulseRing';
+import { Waveform } from '../components/ui/Waveform';
+import { ConnectRow } from '../components/ui/ConnectRow';
+import { Button } from '../components/ui/Button';
+import { Icon } from '../components/ui/Icon';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+
+function StatusPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: '10px 12px',
+        borderRadius: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        background: active ? 'var(--surface)' : 'transparent',
+        border: '1px solid ' + (active ? 'var(--accent-dim)' : 'var(--hairline)'),
+        color: active ? 'var(--text)' : 'var(--text-muted)',
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: -0.1,
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        fontFamily: 'var(--font)',
+      }}
+    >
+      {active && <PulseRing size={6} />}
+      {!active && <Icon name="mute" size={14} stroke="var(--text-muted)" sw={1.6} />}
+      {label}
+    </div>
+  );
+}
+
+/** Modal for entering Yandex Music token */
+function YandexTokenModal({ onClose, onSave }: { onClose: () => void; onSave: (token: string) => Promise<void> }) {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!token.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await onSave(token.trim());
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.5)', display: 'flex',
+        alignItems: 'flex-end', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: 'var(--bg)',
+          borderRadius: '22px 22px 0 0',
+          padding: '20px 20px 32px',
+          display: 'flex', flexDirection: 'column', gap: 16,
+        }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--hairline)', margin: '0 auto' }} />
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>Yandex Music token</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Yandex Music ilovasidan yoki music.yandex.ru saytidan tokenni oling.
+          Brauzerda F12 → Application → Cookies → <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>Session_id</code>
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>TOKEN</div>
+          <input
+            value={token}
+            onChange={e => setToken(e.target.value)}
+            placeholder="Token yoki Session_id ni kiriting"
+            style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font-mono)', padding: 0 }}
+          />
+        </div>
+
+        <Button variant="primary" size="lg" disabled={loading || !token.trim()} onClick={handleSave}>
+          {loading ? 'Tekshirilmoqda...' : 'Saqlash'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function MyProfileScreen() {
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const { user, logout, refreshUser } = useAuth();
+
+  const [visible, setVisible] = useState(user?.visible ?? true);
+  const [visibilityLoading, setVisibilityLoading] = useState(false);
+  const [showYandexModal, setShowYandexModal] = useState(false);
+
+  if (!user) return null;
+
+  const handleVisibility = async (val: boolean) => {
+    setVisible(val);
+    setVisibilityLoading(true);
+    try {
+      await api.patch('/me', { visible: val });
+      await refreshUser();
+    } catch {
+      setVisible(!val); // revert on error
+    } finally {
+      setVisibilityLoading(false);
+    }
+  };
+
+  const handleSpotifyConnect = async () => {
+    try {
+      const res = await api.get<{ url: string }>('/connect/spotify/auth');
+      window.location.href = res.url;
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSpotifyDisconnect = async () => {
+    try {
+      await api.delete('/connect/spotify');
+      await refreshUser();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleYandexSave = async (token: string) => {
+    await api.post('/connect/yandex', { token });
+    await refreshUser();
+  };
+
+  const handleYandexDisconnect = async () => {
+    try {
+      await api.delete('/connect/yandex');
+      await refreshUser();
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <AppShell>
+      <ScreenHeader
+        title="Men"
+        right={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--hairline)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'var(--text-muted)',
+              }}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={14} sw={1.8} />
+            </button>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 4 }}>
+              <Icon name="settings" size={22} stroke="var(--text)" sw={1.6} />
+            </button>
+          </div>
+        }
+      />
+
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="no-scrollbar">
+        {/* Identity */}
+        <div style={{ padding: '4px 24px 18px', display: 'flex', gap: 16, alignItems: 'center' }}>
+          <Avatar name={user.name} size={72} live={!!user.now} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: -0.5 }}>{user.name}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>@{user.handle}</div>
+            <div style={{ marginTop: 6, display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+              <span><b style={{ color: 'var(--text)' }}>{user.friend_count}</b> do'st</span>
+              <span style={{ color: 'var(--text-dim)' }}>·</span>
+              <span><b style={{ color: 'var(--text)' }}>{user.track_count}</b> track</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Current listening */}
+        {user.now ? (
+          <div style={{ padding: '0 16px 14px' }}>
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 16,
+                background: 'var(--surface)',
+                border: '1px solid var(--hairline)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <Album name={user.now.album} artist={user.now.artist} size={56} radius={8} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <LiveChip label="SEN HOZIR" />
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.now.song}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.now.artist}
+                </div>
+              </div>
+              <Waveform bars={3} height={14} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '0 16px 14px' }}>
+            <div style={{ padding: 14, borderRadius: 16, background: 'var(--surface)', border: '1px dashed var(--hairline)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="mute" size={22} stroke="var(--text-muted)" sw={1.6} />
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Hozir hech narsa tinglamayapsan</div>
+            </div>
+          </div>
+        )}
+
+        {/* Visibility toggle */}
+        <div style={{ padding: '0 16px 14px', display: 'flex', gap: 8, opacity: visibilityLoading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+          <StatusPill label="Ko'rinaman" active={visible} onClick={() => handleVisibility(true)} />
+          <StatusPill label="Yashirin" active={!visible} onClick={() => handleVisibility(false)} />
+        </div>
+
+        {/* Platforms */}
+        <SectionHeader title="Ulangan hisoblar" />
+        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <ConnectRow
+            platform="spotify"
+            name="Spotify"
+            sub={user.spotify ? 'Ulangan' : 'Premium yoki Free'}
+            connected={user.spotify}
+            onConnect={handleSpotifyConnect}
+            onDisconnect={user.spotify ? handleSpotifyDisconnect : undefined}
+          />
+          <ConnectRow
+            platform="yandex"
+            name="Yandex Music"
+            sub={user.yandex ? 'Ulangan' : 'Plus obunasi tavsiya etiladi'}
+            connected={user.yandex}
+            onConnect={() => setShowYandexModal(true)}
+            onDisconnect={user.yandex ? handleYandexDisconnect : undefined}
+          />
+        </div>
+
+        {/* Platform tags */}
+        {(user.spotify || user.yandex) && (
+          <div style={{ padding: '12px 16px 0', display: 'flex', gap: 6 }}>
+            {user.spotify && <PlatformTag platform="spotify" size="sm" />}
+            {user.yandex && <PlatformTag platform="yandex" size="sm" />}
+          </div>
+        )}
+
+        {/* No music connected warning */}
+        {!user.spotify && !user.yandex && (
+          <div style={{ padding: '12px 16px 0' }}>
+            <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Musiqa hisobingni ulab, do'stlaringga nima eshityotganingni ko'rsat.
+            </div>
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Actions */}
+        <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Button variant="ghost" size="md" icon="share">Profilni ulashish</Button>
+          <Button
+            variant="ghost"
+            size="md"
+            icon="logout"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={logout}
+          >
+            Chiqish
+          </Button>
+        </div>
+      </div>
+
+      {showYandexModal && (
+        <YandexTokenModal
+          onClose={() => setShowYandexModal(false)}
+          onSave={handleYandexSave}
+        />
+      )}
+    </AppShell>
+  );
+}
