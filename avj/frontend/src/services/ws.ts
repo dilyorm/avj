@@ -23,10 +23,9 @@ class FeedSocket {
 
   private _open(): void {
     if (!this.token) return;
+    // Use same host/port as the page — nginx proxies /ws/ to backend
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname;
-    const port = '8000'; // backend port
-    const url = `${protocol}://${host}:${port}/ws/feed?token=${encodeURIComponent(this.token)}`;
+    const url = `${protocol}://${window.location.host}/ws/feed?token=${encodeURIComponent(this.token)}`;
 
     this.ws = new WebSocket(url);
 
