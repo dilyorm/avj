@@ -46,75 +46,6 @@ function StatusPill({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-/** Modal for entering Yandex Music token */
-function YandexTokenModal({ onClose, onSave }: { onClose: () => void; onSave: (token: string) => Promise<void> }) {
-  const [token, setToken] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSave = async () => {
-    if (!token.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      await onSave(token.trim());
-      onClose();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Xatolik yuz berdi');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(0,0,0,0.5)', display: 'flex',
-        alignItems: 'flex-end', justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 480,
-          background: 'var(--bg)',
-          borderRadius: '22px 22px 0 0',
-          padding: '20px 20px 32px',
-          display: 'flex', flexDirection: 'column', gap: 16,
-        }}
-      >
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--hairline)', margin: '0 auto' }} />
-        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>Yandex Music token</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          Yandex Music ilovasidan yoki music.yandex.ru saytidan tokenni oling.
-          Brauzerda F12 → Application → Cookies → <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>Session_id</code>
-        </div>
-
-        {error && (
-          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>
-            {error}
-          </div>
-        )}
-
-        <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>TOKEN</div>
-          <input
-            value={token}
-            onChange={e => setToken(e.target.value)}
-            placeholder="Token yoki Session_id ni kiriting"
-            style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font-mono)', padding: 0 }}
-          />
-        </div>
-
-        <Button variant="primary" size="lg" disabled={loading || !token.trim()} onClick={handleSave}>
-          {loading ? 'Tekshirilmoqda...' : 'Saqlash'}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function MyProfileScreen() {
   const navigate = useNavigate();
@@ -123,7 +54,7 @@ export function MyProfileScreen() {
 
   const [visible, setVisible] = useState(user?.visible ?? true);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
-  const [showYandexModal, setShowYandexModal] = useState(false);
+  const [yandexLoading, setYandexLoading] = useState(false);
 
   if (!user) return null;
 
@@ -158,9 +89,14 @@ export function MyProfileScreen() {
     }
   };
 
-  const handleYandexSave = async (token: string) => {
-    await api.post('/connect/yandex', { token });
-    await refreshUser();
+  const handleYandexConnect = async () => {
+    setYandexLoading(true);
+    try {
+      const res = await api.get<{ url: string }>('/connect/yandex/auth');
+      window.location.href = res.url;
+    } catch {
+      setYandexLoading(false);
+    }
   };
 
   const handleYandexDisconnect = async () => {
@@ -272,9 +208,9 @@ export function MyProfileScreen() {
           <ConnectRow
             platform="yandex"
             name="Yandex Music"
-            sub={user.yandex ? 'Ulangan' : 'Plus obunasi tavsiya etiladi'}
+            sub={user.yandex ? 'Ulangan' : yandexLoading ? 'Yo\'naltirilmoqda...' : 'Plus obunasi tavsiya etiladi'}
             connected={user.yandex}
-            onConnect={() => setShowYandexModal(true)}
+            onConnect={handleYandexConnect}
             onDisconnect={user.yandex ? handleYandexDisconnect : undefined}
           />
         </div>
@@ -313,12 +249,6 @@ export function MyProfileScreen() {
         </div>
       </div>
 
-      {showYandexModal && (
-        <YandexTokenModal
-          onClose={() => setShowYandexModal(false)}
-          onSave={handleYandexSave}
-        />
-      )}
     </AppShell>
   );
 }
