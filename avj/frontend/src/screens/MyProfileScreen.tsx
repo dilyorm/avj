@@ -16,6 +16,48 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
+function YandexTokenModal({ onClose, onSave }: { onClose: () => void; onSave: (token: string) => Promise<void> }) {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!token.trim()) return;
+    setLoading(true); setError('');
+    try { await onSave(token.trim()); onClose(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Xatolik yuz berdi'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'var(--bg)', borderRadius: '22px 22px 0 0', padding: '20px 20px 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--hairline)', margin: '0 auto' }} />
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>Yandex Music token</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            ['1', 'music.yandex.ru saytini oching (kirgan bo\'ling)'],
+            ['2', 'F12 → Network tab → sahifani yangilang'],
+            ['3', 'Har qanday so\'rovni bosing → Headers'],
+            ['4', 'Authorization: OAuth XXXXX — token qismini ko\'chiring'],
+          ].map(([n, text]) => (
+            <div key={n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', color: '#000', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{n}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{text}</div>
+            </div>
+          ))}
+        </div>
+        {error && <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>{error}</div>}
+        <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>OAuth TOKEN</div>
+          <input value={token} onChange={e => setToken(e.target.value)} placeholder="y0_AgAAAA... yoki boshqa format" style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-mono)', padding: 0 }} />
+        </div>
+        <Button variant="primary" size="lg" disabled={loading || !token.trim()} onClick={handleSave}>{loading ? 'Tekshirilmoqda...' : 'Saqlash'}</Button>
+      </div>
+    </div>
+  );
+}
+
 function StatusPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <div
@@ -54,7 +96,7 @@ export function MyProfileScreen() {
 
   const [visible, setVisible] = useState(user?.visible ?? true);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
-  const [yandexLoading, setYandexLoading] = useState(false);
+  const [showYandexModal, setShowYandexModal] = useState(false);
 
   if (!user) return null;
 
@@ -89,14 +131,9 @@ export function MyProfileScreen() {
     }
   };
 
-  const handleYandexConnect = async () => {
-    setYandexLoading(true);
-    try {
-      const res = await api.get<{ url: string }>('/connect/yandex/auth');
-      window.location.href = res.url;
-    } catch {
-      setYandexLoading(false);
-    }
+  const handleYandexSave = async (token: string) => {
+    await api.post('/connect/yandex', { token });
+    await refreshUser();
   };
 
   const handleYandexDisconnect = async () => {
@@ -210,7 +247,7 @@ export function MyProfileScreen() {
             name="Yandex Music"
             sub={user.yandex ? 'Ulangan' : yandexLoading ? 'Yo\'naltirilmoqda...' : 'Plus obunasi tavsiya etiladi'}
             connected={user.yandex}
-            onConnect={handleYandexConnect}
+            onConnect={() => setShowYandexModal(true)}
             onDisconnect={user.yandex ? handleYandexDisconnect : undefined}
           />
         </div>
@@ -249,6 +286,9 @@ export function MyProfileScreen() {
         </div>
       </div>
 
+      {showYandexModal && (
+        <YandexTokenModal onClose={() => setShowYandexModal(false)} onSave={handleYandexSave} />
+      )}
     </AppShell>
   );
 }

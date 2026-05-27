@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { OnboardingShell } from '../components/layout/OnboardingShell';
 import { ScreenHeader } from '../components/layout/ScreenHeader';
@@ -8,6 +8,94 @@ import { Icon } from '../components/ui/Icon';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
+function YandexSheet({ onClose, onSave }: { onClose: () => void; onSave: (token: string) => Promise<void> }) {
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!token.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await onSave(token.trim());
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Token noto\'g\'ri');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(0,0,0,0.5)', display: 'flex',
+        alignItems: 'flex-end', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: 'var(--bg)',
+          borderRadius: '22px 22px 0 0',
+          padding: '20px 20px 36px',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--hairline)', margin: '0 auto' }} />
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>Yandex Music token</div>
+
+        {/* Step-by-step instructions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            ['1', 'music.yandex.ru saytini oching (kirgan bo\'ling)'],
+            ['2', 'F12 → Network tab → sahifani yangilang'],
+            ['3', 'Har qanday so\'rovni bosing → Headers'],
+            ['4', 'Authorization: OAuth XXXXX — token qismini ko\'chiring'],
+          ].map(([n, text]) => (
+            <div key={n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', color: '#000',
+                fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, marginTop: 1,
+              }}>{n}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{text}</div>
+            </div>
+          ))}
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ padding: '12px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>
+            OAuth TOKEN
+          </div>
+          <input
+            value={token}
+            onChange={e => setToken(e.target.value)}
+            placeholder="y0_AgAAAA... yoki boshqa format"
+            style={{
+              width: '100%', background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-mono)', padding: 0,
+            }}
+          />
+        </div>
+
+        <Button variant="primary" size="lg" disabled={loading || !token.trim()} onClick={handleSave}>
+          {loading ? 'Tekshirilmoqda...' : 'Ulash'}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function ConnectMusicScreen() {
   const navigate = useNavigate();
@@ -15,17 +103,12 @@ export function ConnectMusicScreen() {
   const { user, refreshUser } = useAuth();
 
   const [spotifyLoading, setSpotifyLoading] = useState(false);
-  const [yandexLoading, setYandexLoading] = useState(false);
+  const [showYandexSheet, setShowYandexSheet] = useState(false);
 
   const errorParam = searchParams.get('error');
 
-  // After OAuth redirects — refresh user data
   useEffect(() => {
-    const spotify = searchParams.get('spotify');
-    const yandex = searchParams.get('yandex');
-    if (spotify === 'connected' || yandex === 'connected') {
-      refreshUser();
-    }
+    if (searchParams.get('spotify') === 'connected') refreshUser();
   }, []);
 
   const spotifyConnected = user?.spotify ?? false;
@@ -42,15 +125,10 @@ export function ConnectMusicScreen() {
     }
   };
 
-  const handleYandexConnect = useCallback(async () => {
-    setYandexLoading(true);
-    try {
-      const res = await api.get<{ url: string }>('/connect/yandex/auth');
-      window.location.href = res.url;
-    } catch {
-      setYandexLoading(false);
-    }
-  }, []);
+  const handleYandexSave = async (token: string) => {
+    await api.post('/connect/yandex', { token });
+    await refreshUser();
+  };
 
   return (
     <OnboardingShell>
@@ -77,11 +155,7 @@ export function ConnectMusicScreen() {
 
         {errorParam && (
           <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,82,82,0.1)', border: '1px solid rgba(255,82,82,0.3)', fontSize: 13, color: '#FF5252' }}>
-            {errorParam === 'spotify_denied' && 'Spotify ruxsati rad etildi. Qayta urinib ko\'ring.'}
-            {errorParam === 'yandex_denied' && 'Yandex ruxsati rad etildi. Qayta urinib ko\'ring.'}
-            {errorParam === 'yandex_invalid_token' && 'Yandex Music token noto\'g\'ri. Qayta urinib ko\'ring.'}
-            {errorParam === 'yandex_no_token' && 'Yandex tokenni olishda xatolik. Qayta urinib ko\'ring.'}
-            {!['spotify_denied','yandex_denied','yandex_invalid_token','yandex_no_token'].includes(errorParam) && 'Ulanishda xatolik. Qayta urinib ko\'ring.'}
+            {errorParam === 'spotify_denied' ? 'Spotify ruxsati rad etildi.' : 'Ulanishda xatolik. Qayta urinib ko\'ring.'}
           </div>
         )}
 
@@ -96,44 +170,32 @@ export function ConnectMusicScreen() {
           <ConnectRow
             platform="yandex"
             name="Yandex Music"
-            sub={yandexConnected ? 'Ulangan' : yandexLoading ? 'Yo\'naltirilmoqda...' : 'Plus obunasi tavsiya etiladi'}
+            sub={yandexConnected ? 'Ulangan' : 'Token orqali ulanish'}
             connected={yandexConnected}
-            onConnect={handleYandexConnect}
+            onConnect={() => setShowYandexSheet(true)}
           />
         </div>
 
         <div style={{ flex: 1 }} />
 
-        {/* Privacy note */}
-        <div
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            background: 'var(--surface)',
-            border: '1px solid var(--hairline)',
-            display: 'flex',
-            gap: 10,
-            alignItems: 'flex-start',
-          }}
-        >
+        <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <Icon name="settings" size={16} stroke="var(--text-muted)" sw={1.5} style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Avj sening parolingni saqlamaydi. Faqat hozirgi tracking nomini o'qiymiz.
+            Avj sening parolingni saqlamaydi. Faqat hozirgi track nomini o'qiymiz.
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {anyConnected && (
-            <Button variant="primary" size="lg" onClick={() => navigate('/home')}>
-              Boshlash →
-            </Button>
+            <Button variant="primary" size="lg" onClick={() => navigate('/home')}>Boshlash →</Button>
           )}
-          <Button variant="ghost" size="md" onClick={() => navigate('/home')}>
-            Hozircha o'tkazib yuborish
-          </Button>
+          <Button variant="ghost" size="md" onClick={() => navigate('/home')}>Hozircha o'tkazib yuborish</Button>
         </div>
       </div>
 
+      {showYandexSheet && (
+        <YandexSheet onClose={() => setShowYandexSheet(false)} onSave={handleYandexSave} />
+      )}
     </OnboardingShell>
   );
 }
