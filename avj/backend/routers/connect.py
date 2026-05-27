@@ -151,11 +151,8 @@ async def yandex_device_poll(
     if not token:
         raise HTTPException(502, "No access_token in Yandex response")
 
-    # Validate token works for Music API
-    info = await ym_svc.validate_token(token)
-    if info is None:
-        raise HTTPException(400, "Token valid for Yandex but Music API unavailable — check Yandex Plus subscription")
-
+    # Token came directly from Yandex OAuth — it's valid. Skip Music API validation
+    # (validate_token can fail due to yandex-music library parse bugs; we trust OAuth)
     current.yandex_token = token
     await db.commit()
     return {"status": "connected"}

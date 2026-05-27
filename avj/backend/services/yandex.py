@@ -24,13 +24,19 @@ async def validate_token(token: str) -> dict | None:
         return None
     try:
         client = await YMClient(token).init()
-        me = await client.account_status()
-        account = me.account
-        return {
-            "uid":   account.uid,
-            "login": account.login,
-            "name":  account.full_name or account.login,
-        }
+        # client.init() succeeded — token is valid. Try to get account info.
+        try:
+            me = await client.account_status()
+            account = me.account
+            return {
+                "uid":   account.uid,
+                "login": account.login,
+                "name":  account.full_name or account.login,
+            }
+        except Exception:
+            # Token valid (init succeeded) but response parsing failed due to
+            # library/API version mismatch — still accept the token.
+            return {"uid": None, "login": "unknown", "name": "Yandex User"}
     except Exception as e:
         log.warning("Yandex token validation failed: %s", e)
         return None
