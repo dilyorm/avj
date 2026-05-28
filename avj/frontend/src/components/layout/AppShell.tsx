@@ -7,6 +7,7 @@ import { Album } from '../ui/Album';
 import { PlatformTag } from '../ui/PlatformTag';
 import { Waveform } from '../ui/Waveform';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/LangContext';
 
 interface AppShellProps {
   children: ReactNode;
@@ -16,6 +17,7 @@ interface AppShellProps {
 function RightPanel() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLang();
 
   return (
     <div
@@ -32,7 +34,7 @@ function RightPanel() {
     >
       {/* Header label */}
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
-        Sening lenta
+        {t.yourFeed}
       </div>
 
       {/* Now playing / last played card */}
@@ -53,7 +55,7 @@ function RightPanel() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {isLive ? <Waveform bars={3} height={10} /> : (
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>Oxirgi</span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>{t.lastTrack}</span>
               )}
               <PlatformTag platform={track.platform as 'spotify' | 'yandex'} />
             </div>
@@ -86,11 +88,9 @@ function RightPanel() {
               <path d="M9 18V6l11-3v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="15" r="3"/>
             </svg>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Hozir hech narsa</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t.nothingNow}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            {user?.spotify || user?.yandex
-              ? 'Musiqa ilovani oching va tinglang'
-              : 'Musiqa hisobini ulang'}
+            {user?.spotify || user?.yandex ? t.openMusicApp : t.connectMusicAccount}
           </div>
           {!user?.spotify && !user?.yandex && (
             <button
@@ -101,7 +101,7 @@ function RightPanel() {
                 fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)',
               }}
             >
-              Ulash
+              {t.connectBtn}
             </button>
           )}
         </div>
@@ -112,7 +112,7 @@ function RightPanel() {
 
       {/* App info */}
       <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.6, fontFamily: 'var(--font-mono)' }}>
-        avj. — do'stlaringni real vaqtda kuzat
+        {t.tagline}
       </div>
     </div>
   );
@@ -120,7 +120,7 @@ function RightPanel() {
 
 export function AppShell({ children, showTabBar = true }: AppShellProps) {
   return (
-    <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: 'var(--bg)' }}>
 
       {/* ── Left sidebar (md+) ─────────────────────────────── */}
       <aside
@@ -144,7 +144,8 @@ export function AppShell({ children, showTabBar = true }: AppShellProps) {
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '100dvh',
+          height: '100dvh',
+          overflow: 'hidden',
         }}
       >
         {/* Status bar — only shown when installed as PWA */}

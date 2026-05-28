@@ -6,15 +6,17 @@ import { SectionHeader } from '../components/layout/SectionHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { Icon } from '../components/ui/Icon';
 import { api } from '../services/api';
+import { useLang } from '../context/LangContext';
 import type { FriendData } from '../context/FeedContext';
 
 type FS = 'none' | 'pending_sent' | 'pending_received' | 'friends';
 
 function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' | 'accept' | 'cancel') => void }) {
+  const { t } = useLang();
   if (status === 'friends') {
     return (
       <span style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font)' }}>
-        Do'st
+        {t.friendStatus}
       </span>
     );
   }
@@ -24,7 +26,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
         onClick={e => { e.stopPropagation(); onAction('cancel'); }}
         style={{ padding: '6px 12px', borderRadius: 10, background: 'transparent', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)' }}
       >
-        Bekor qilish
+        {t.cancelRequest}
       </button>
     );
   }
@@ -34,7 +36,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
         onClick={e => { e.stopPropagation(); onAction('accept'); }}
         style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
       >
-        Qabul
+        {t.accept}
       </button>
     );
   }
@@ -43,7 +45,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
       onClick={e => { e.stopPropagation(); onAction('add'); }}
       style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
     >
-      + Qo'sh
+      {t.addBtn}
     </button>
   );
 }
@@ -87,6 +89,7 @@ function UserRow({ user, onNavigate }: { user: FriendData; onNavigate: (id: stri
 
 export function AddFriendsScreen() {
   const navigate = useNavigate();
+  const { t } = useLang();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<FriendData[]>([]);
   const [searchResults, setSearchResults] = useState<FriendData[]>([]);
@@ -117,7 +120,7 @@ export function AddFriendsScreen() {
 
   return (
     <AppShell>
-      <ScreenHeader title="Do'st qo'shish" />
+      <ScreenHeader title={t.addFriend} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Search bar */}
@@ -127,7 +130,7 @@ export function AddFriendsScreen() {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Ism yoki @username"
+              placeholder={t.searchPlaceholder}
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--text)', fontFamily: 'var(--font)' }}
             />
             {query && (
@@ -138,7 +141,7 @@ export function AddFriendsScreen() {
           </div>
         </div>
 
-        <SectionHeader title={query.trim() ? 'Qidiruv natijalari' : 'Sen uchun tavsiya'} />
+        <SectionHeader title={query.trim() ? t.searchResults : t.suggestions} />
 
         <div style={{ flex: 1, overflowY: 'auto' }} className="no-scrollbar">
           {(loadingSuggestions && !query) || searching ? (
@@ -156,10 +159,10 @@ export function AddFriendsScreen() {
           ) : displayList.length === 0 ? (
             <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 15, fontWeight: 600 }}>
-                {query.trim() ? 'Natija topilmadi' : 'Hozircha tavsiya yo\'q'}
+                {query.trim() ? t.noResults : t.noSuggestions}
               </div>
               {query.trim() && (
-                <div style={{ fontSize: 13, marginTop: 6 }}>"{query}" bo'yicha hech kim topilmadi</div>
+                <div style={{ fontSize: 13, marginTop: 6 }}>{t.noResultsFor(query)}</div>
               )}
             </div>
           ) : (

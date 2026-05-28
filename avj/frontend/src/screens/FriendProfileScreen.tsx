@@ -12,6 +12,7 @@ import { Waveform } from '../components/ui/Waveform';
 import { Icon } from '../components/ui/Icon';
 import { Button } from '../components/ui/Button';
 import { api } from '../services/api';
+import { useLang } from '../context/LangContext';
 import type { FriendData } from '../context/FeedContext';
 
 type FriendshipStatus = 'none' | 'pending_sent' | 'pending_received' | 'friends';
@@ -26,6 +27,7 @@ function FriendActionButton({
   onStatusChange: (s: FriendshipStatus) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const { t } = useLang();
 
   const act = async (action: 'add' | 'accept' | 'reject' | 'remove') => {
     setLoading(true);
@@ -57,7 +59,7 @@ function FriendActionButton({
         disabled={loading}
         style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)' }}
       >
-        Do'stlikdan chiqish
+        {t.unfriend}
       </button>
     );
   }
@@ -68,7 +70,7 @@ function FriendActionButton({
         disabled={loading}
         style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)' }}
       >
-        So'rov yuborildi · Bekor qilish
+        {t.requestSent}
       </button>
     );
   }
@@ -80,14 +82,14 @@ function FriendActionButton({
           disabled={loading}
           style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
         >
-          Qabul qilish
+          {t.acceptRequest}
         </button>
         <button
           onClick={() => act('reject')}
           disabled={loading}
           style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)' }}
         >
-          Rad etish
+          {t.rejectRequest}
         </button>
       </div>
     );
@@ -99,7 +101,7 @@ function FriendActionButton({
       disabled={loading}
       style={{ padding: '9px 18px', borderRadius: 12, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
     >
-      Do'st bo'lish so'rovi yuborish
+      {t.sendRequest}
     </button>
   );
 }
@@ -107,6 +109,7 @@ function FriendActionButton({
 export function FriendProfileScreen() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { t } = useLang();
 
   const [friend, setFriend] = useState<FriendData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +125,7 @@ export function FriendProfileScreen() {
         setFsStatus((data.friendship_status ?? 'none') as FriendshipStatus);
         setError(null);
       })
-      .catch(e => setError(e instanceof Error ? e.message : 'Yuklab bo\'lmadi'))
+      .catch(e => setError(e instanceof Error ? e.message : t.loadFailed))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -156,8 +159,8 @@ export function FriendProfileScreen() {
       <AppShell showTabBar={false}>
         <ScreenHeader left={backBtn} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>{error ?? 'Profil topilmadi'}</div>
-          <Button variant="secondary" size="sm" full={false} onClick={() => navigate(-1)}>Orqaga</Button>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>{error ?? t.profileNotFound}</div>
+          <Button variant="secondary" size="sm" full={false} onClick={() => navigate(-1)}>{t.back}</Button>
         </div>
         <HomeIndicator />
       </AppShell>
@@ -196,13 +199,13 @@ export function FriendProfileScreen() {
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Bu hisob yopiq</div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>{t.privateAccount}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
               {fsStatus === 'pending_sent'
-                ? 'Do\'stlik so\'rovingiz yuborildi. Qabul qilingandan so\'ng musiqa lentasini ko\'ra olasiz.'
+                ? t.privateRequestSent
                 : fsStatus === 'pending_received'
-                ? `${friend.name} sizga do'stlik so'rovi yubordi.`
-                : 'Do\'st bo\'lsangiz, musiqa lentasini ko\'ra olasiz.'}
+                ? t.privateIncoming(friend.name)
+                : t.privateDefault}
             </div>
           </div>
 
@@ -260,7 +263,7 @@ export function FriendProfileScreen() {
           {friend.status === 'live' && friend.song ? (
             <div style={{ padding: 14, borderRadius: 18, background: 'var(--accent-soft)', border: '1px solid var(--accent-dim)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <LiveChip label="HOZIR TINGLAMOQDA" />
+                <LiveChip label={t.nowPlaying} />
                 <div style={{ flex: 1 }} />
                 <Waveform bars={4} height={14} />
               </div>
@@ -278,10 +281,10 @@ export function FriendProfileScreen() {
                 <Icon name="mute" size={22} stroke="var(--text-muted)" sw={1.6} />
               </div>
               <div>
-                <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: -0.3 }}>Hozir hech narsa tinglamayapti</div>
+                <div style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: -0.3 }}>{t.notListeningNow}</div>
                 {friend.ago && (
                   <div style={{ marginTop: 4, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                    Oxirgi marta · <span style={{ fontFamily: 'var(--font-mono)' }}>{friend.ago}</span>
+                    {t.lastSeen} · <span style={{ fontFamily: 'var(--font-mono)' }}>{friend.ago}</span>
                   </div>
                 )}
               </div>
@@ -292,7 +295,7 @@ export function FriendProfileScreen() {
         {/* Recent tracks */}
         {friend.recent && friend.recent.length > 0 && (
           <div style={{ flex: 1, marginTop: 18 }}>
-            <SectionHeader title="Oxirgi tracklar" />
+            <SectionHeader title={t.recentTracks} />
             {friend.recent.map(r => (
               <div
                 key={r.id}

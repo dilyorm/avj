@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LangContext';
 import { api } from '../services/api';
 
 // Re-uses same device flow sheet — import-style inline component
@@ -138,6 +139,7 @@ export function MyProfileScreen() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, logout, refreshUser } = useAuth();
+  const { lang, setLang, t } = useLang();
 
   const [visible, setVisible] = useState(user?.visible ?? true);
   const [visibilityLoading, setVisibilityLoading] = useState(false);
@@ -229,9 +231,23 @@ export function MyProfileScreen() {
   return (
     <AppShell>
       <ScreenHeader
-        title="Men"
+        title={t.profile}
         right={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Language toggle */}
+            <button
+              onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
+              style={{
+                height: 32, padding: '0 10px', borderRadius: 8,
+                background: 'var(--surface-2)',
+                border: '1px solid var(--hairline)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'var(--text-muted)',
+                fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: 'var(--font-mono)',
+              }}
+            >
+              {lang === 'uz' ? 'RU' : 'UZ'}
+            </button>
             <button
               onClick={toggleTheme}
               style={{
@@ -243,9 +259,6 @@ export function MyProfileScreen() {
               }}
             >
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={14} sw={1.8} />
-            </button>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 4 }}>
-              <Icon name="settings" size={22} stroke="var(--text)" sw={1.6} />
             </button>
           </div>
         }
@@ -259,9 +272,9 @@ export function MyProfileScreen() {
             <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: -0.5 }}>{user.name}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>@{user.handle}</div>
             <div style={{ marginTop: 6, display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-              <span><b style={{ color: 'var(--text)' }}>{user.friend_count}</b> do'st</span>
+              <span><b style={{ color: 'var(--text)' }}>{user.friend_count}</b> {t.friendCount}</span>
               <span style={{ color: 'var(--text-dim)' }}>·</span>
-              <span><b style={{ color: 'var(--text)' }}>{user.track_count}</b> track</span>
+              <span><b style={{ color: 'var(--text)' }}>{user.track_count}</b> {t.trackCount}</span>
             </div>
           </div>
         </div>
@@ -283,7 +296,7 @@ export function MyProfileScreen() {
               <Album name={user.now.album} artist={user.now.artist} size={56} radius={8} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                  <LiveChip label="SEN HOZIR" />
+                  <LiveChip label={t.youNow} />
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user.now.song}
@@ -313,7 +326,7 @@ export function MyProfileScreen() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
-                    OXIRGI TINGLANGAN
+                    {t.lastPlayed}
                   </span>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -332,24 +345,24 @@ export function MyProfileScreen() {
               <div style={{ width: 56, height: 56, borderRadius: 8, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon name="mute" size={22} stroke="var(--text-muted)" sw={1.6} />
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Hozir hech narsa tinglamayapsan</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.notListeningYou}</div>
             </div>
           </div>
         )}
 
         {/* Visibility toggle */}
         <div style={{ padding: '0 16px 14px', display: 'flex', gap: 8, opacity: visibilityLoading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
-          <StatusPill label="Ko'rinaman" active={visible} onClick={() => handleVisibility(true)} />
-          <StatusPill label="Yashirin" active={!visible} onClick={() => handleVisibility(false)} />
+          <StatusPill label={t.visible} active={visible} onClick={() => handleVisibility(true)} />
+          <StatusPill label={t.hidden} active={!visible} onClick={() => handleVisibility(false)} />
         </div>
 
         {/* Platforms */}
-        <SectionHeader title="Ulangan hisoblar" />
+        <SectionHeader title={t.connectedAccounts} />
         <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ConnectRow
             platform="spotify"
             name="Spotify"
-            sub={user.spotify ? 'Ulangan' : 'Premium yoki Free'}
+            sub={user.spotify ? t.connected : t.spotifySub}
             connected={user.spotify}
             onConnect={handleSpotifyConnect}
             onDisconnect={user.spotify ? handleSpotifyDisconnect : undefined}
@@ -357,7 +370,7 @@ export function MyProfileScreen() {
           <ConnectRow
             platform="yandex"
             name="Yandex Music"
-            sub={user.yandex ? 'Ulangan' : 'Token orqali ulanish'}
+            sub={user.yandex ? t.connected : t.yandexSub}
             connected={user.yandex}
             onConnect={() => setShowYandexModal(true)}
             onDisconnect={user.yandex ? handleYandexDisconnect : undefined}
@@ -376,7 +389,7 @@ export function MyProfileScreen() {
         {!user.spotify && !user.yandex && (
           <div style={{ padding: '12px 16px 0' }}>
             <div style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Musiqa hisobingni ulab, do'stlaringga nima eshityotganingni ko'rsat.
+              {t.noMusicWarning}
             </div>
           </div>
         )}
@@ -385,7 +398,7 @@ export function MyProfileScreen() {
         {hasMusic && (
           <>
             <SectionHeader
-              title="Oxirgi tinglangan"
+              title={t.historyTitle}
               action={
                 <button
                   onClick={fetchHistory}
@@ -409,20 +422,20 @@ export function MyProfileScreen() {
               )}
               {!historyLoading && history.length === 0 && (
                 <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Tarix topilmadi
+                  {t.historyEmpty}
                 </div>
               )}
-              {!historyLoading && history.map((t, i) => {
-                const when = formatPlayedAt(t.played_at);
+              {!historyLoading && history.map((track, i) => {
+                const when = formatPlayedAt(track.played_at);
                 return (
                   <div key={i} style={{ padding: '9px 0', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < history.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
-                    <Album name={t.album} artist={t.artist} size={40} radius={6} />
+                    <Album name={track.album} artist={track.artist} size={40} radius={6} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {t.song}
+                        {track.song}
                       </div>
                       <div style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {t.artist}
+                        {track.artist}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
@@ -431,7 +444,7 @@ export function MyProfileScreen() {
                           {when}
                         </span>
                       )}
-                      <PlatformTag platform={t.platform} size="sm" />
+                      <PlatformTag platform={track.platform} size="sm" />
                     </div>
                   </div>
                 );
@@ -445,7 +458,7 @@ export function MyProfileScreen() {
 
       {/* Pinned footer actions */}
       <div style={{ flexShrink: 0, padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--hairline)', background: 'var(--bg)' }}>
-        <Button variant="ghost" size="md" icon="share" onClick={handleShare}>Profilni ulashish</Button>
+        <Button variant="ghost" size="md" icon="share" onClick={handleShare}>{t.shareProfile}</Button>
         {shareToast && (
           <div style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
             {shareToast}
@@ -458,7 +471,7 @@ export function MyProfileScreen() {
           style={{ color: 'var(--text-muted)' }}
           onClick={logout}
         >
-          Chiqish
+          {t.logout}
         </Button>
       </div>
 

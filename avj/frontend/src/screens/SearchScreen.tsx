@@ -7,16 +7,18 @@ import { Avatar } from '../components/ui/Avatar';
 import { PlatformTag } from '../components/ui/PlatformTag';
 import { Icon } from '../components/ui/Icon';
 import { useFeed } from '../context/FeedContext';
+import { useLang } from '../context/LangContext';
 import { api } from '../services/api';
 import type { FriendData } from '../context/FeedContext';
 
 type FS = 'none' | 'pending_sent' | 'pending_received' | 'friends';
 
 function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' | 'accept' | 'cancel') => void }) {
+  const { t } = useLang();
   if (status === 'friends') {
     return (
       <span style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font)', flexShrink: 0 }}>
-        Do'st
+        {t.friendStatus}
       </span>
     );
   }
@@ -26,7 +28,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
         onClick={e => { e.stopPropagation(); onAction('cancel'); }}
         style={{ padding: '6px 12px', borderRadius: 10, background: 'transparent', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font)', flexShrink: 0 }}
       >
-        Bekor qilish
+        {t.cancelRequest}
       </button>
     );
   }
@@ -36,7 +38,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
         onClick={e => { e.stopPropagation(); onAction('accept'); }}
         style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)', flexShrink: 0 }}
       >
-        Qabul
+        {t.accept}
       </button>
     );
   }
@@ -45,7 +47,7 @@ function RequestButton({ status, onAction }: { status: FS; onAction: (a: 'add' |
       onClick={e => { e.stopPropagation(); onAction('add'); }}
       style={{ padding: '6px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)', flexShrink: 0 }}
     >
-      + Qo'sh
+      {t.addBtn}
     </button>
   );
 }
@@ -89,6 +91,7 @@ function UserRow({ user, onNavigate }: { user: FriendData; onNavigate: (id: stri
 
 export function SearchScreen() {
   const navigate = useNavigate();
+  const { t } = useLang();
   const { friends } = useFeed();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FriendData[]>([]);
@@ -115,7 +118,7 @@ export function SearchScreen() {
 
   return (
     <AppShell>
-      <ScreenHeader title="Qidiruv" />
+      <ScreenHeader title={t.search} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Search bar */}
@@ -125,7 +128,7 @@ export function SearchScreen() {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Do'stlar, qo'shiqlar, artistlar..."
+              placeholder={t.searchPlaceholderFull}
               autoFocus
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', fontFamily: 'var(--font)' }}
             />
@@ -141,7 +144,7 @@ export function SearchScreen() {
           {/* No query — show friends list */}
           {!query && friends.length > 0 && (
             <>
-              <SectionHeader title="Do'stlar" />
+              <SectionHeader title={t.friends} />
               {friends.map(f => (
                 <div
                   key={f.id}
@@ -183,10 +186,10 @@ export function SearchScreen() {
                 <Icon name="search" size={48} stroke="var(--text-dim)" sw={1.2} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: -0.3 }}>
-                Natija topilmadi
+                {t.noResults}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 6 }}>
-                "{query}" bo'yicha hech narsa yo'q
+                {t.noSearchFor(query)}
               </div>
             </div>
           )}
@@ -194,7 +197,7 @@ export function SearchScreen() {
           {/* Results */}
           {query && !searching && results.length > 0 && (
             <>
-              <SectionHeader title={`Natijalar · ${results.length}`} />
+              <SectionHeader title={t.results(results.length)} />
               {results.map(u => (
                 <UserRow key={u.id} user={u} onNavigate={id => navigate(`/friend/${id}`)} />
               ))}

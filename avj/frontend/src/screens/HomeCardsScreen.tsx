@@ -11,20 +11,22 @@ import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
 import { useFeed } from '../context/FeedContext';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LangContext';
 import { api } from '../services/api';
 import type { FriendData } from '../context/FeedContext';
 
 function FilterStrip() {
+  const { t } = useLang();
   return (
     <div style={{ flexShrink: 0, padding: '0 16px 12px', display: 'flex', gap: 6, overflowX: 'auto' }} className="no-scrollbar">
-      {['Hammasi', 'Hozir', "Do'stlar"].map((t, i) => (
-        <span key={t} style={{
+      {[t.lenta, t.nowPlaying, t.friends].map((label, i) => (
+        <span key={label} style={{
           padding: '7px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
           whiteSpace: 'nowrap', background: i === 0 ? 'var(--text)' : 'transparent',
           color: i === 0 ? 'var(--bg)' : 'var(--text-muted)',
           border: i === 0 ? 'none' : '1px solid var(--hairline)',
           cursor: 'pointer', flexShrink: 0, fontFamily: 'var(--font)',
-        }}>{t}</span>
+        }}>{label}</span>
       ))}
     </div>
   );
@@ -54,6 +56,7 @@ function FriendRequestRow({ req, onAccept, onReject }: {
   onReject: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const { t } = useLang();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
       <Avatar name={req.name} size={42} />
@@ -67,14 +70,14 @@ function FriendRequestRow({ req, onAccept, onReject }: {
           onClick={async () => { setLoading(true); try { await api.post(`/friends/${req.id}/accept`, {}); onAccept(); } catch { setLoading(false); } }}
           style={{ padding: '7px 12px', borderRadius: 10, background: 'var(--accent)', color: '#000', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}
         >
-          Qabul
+          {t.accept}
         </button>
         <button
           disabled={loading}
           onClick={async () => { setLoading(true); try { await api.post(`/friends/${req.id}/reject`, {}); onReject(); } catch { setLoading(false); } }}
           style={{ padding: '7px 12px', borderRadius: 10, background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--hairline)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}
         >
-          Rad
+          {t.reject}
         </button>
       </div>
     </div>
@@ -82,6 +85,7 @@ function FriendRequestRow({ req, onAccept, onReject }: {
 }
 
 function OfflineFriendRow({ f, onClick }: { f: FriendData; onClick: () => void }) {
+  const { t } = useLang();
   return (
     <div
       onClick={onClick}
@@ -92,7 +96,7 @@ function OfflineFriendRow({ f, onClick }: { f: FriendData; onClick: () => void }
       <Avatar name={f.name} size={42} live={false} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>{f.name}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>hozir tinglayotgani yo'q</div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{t.notListening}</div>
       </div>
       <Icon name="chev" size={16} stroke="var(--text-dim)" />
     </div>
@@ -102,6 +106,7 @@ function OfflineFriendRow({ f, onClick }: { f: FriendData; onClick: () => void }
 export function HomeCardsScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLang();
   const { friends, loading, error, reload } = useFeed();
   const [requests, setRequests] = useState<FriendData[]>([]);
 
@@ -111,7 +116,7 @@ export function HomeCardsScreen() {
 
   const handleAccept = (id: string) => {
     setRequests(prev => prev.filter(r => r.id !== id));
-    reload(); // refresh friends list
+    reload();
   };
   const handleReject = (id: string) => {
     setRequests(prev => prev.filter(r => r.id !== id));
@@ -124,7 +129,7 @@ export function HomeCardsScreen() {
   return (
     <AppShell>
       <ScreenHeader
-        title="Lenta"
+        title={t.lenta}
         right={<Avatar name={user?.name ?? ''} size={32} live={!!user?.now} onClick={() => navigate('/profile')} />}
       />
       <FilterStrip />
@@ -139,7 +144,7 @@ export function HomeCardsScreen() {
         {error && (
           <div style={{ padding: '40px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>{error}</div>
-            <Button variant="secondary" size="sm" full={false} onClick={reload}>Qayta yuklash</Button>
+            <Button variant="secondary" size="sm" full={false} onClick={reload}>{t.reload}</Button>
           </div>
         )}
 
@@ -147,7 +152,7 @@ export function HomeCardsScreen() {
         {requests.length > 0 && (
           <>
             <SectionHeader
-              title={`Do'stlik so'rovlari · ${requests.length}`}
+              title={`${t.friendRequests} · ${requests.length}`}
               style={{ marginTop: 4 }}
             />
             {requests.map(req => (
@@ -166,13 +171,13 @@ export function HomeCardsScreen() {
           <div style={{ flex: 1, padding: '48px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
             <EmptyArt glyph="globe" />
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4 }}>Lenta hozircha bo'sh</div>
+              <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4 }}>{t.feedEmpty}</div>
               <div style={{ marginTop: 6, fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Do'st qo'sh — ular nima eshityotgani shu yerda ko'rinadi.
+                {t.feedEmptySub}
               </div>
             </div>
             <Button variant="primary" size="md" icon="plus" full={false} onClick={() => navigate('/friends/add')}>
-              Do'st qo'shish
+              {t.addFriend}
             </Button>
           </div>
         )}
@@ -180,7 +185,7 @@ export function HomeCardsScreen() {
         {/* Live */}
         {!loading && live.length > 0 && (
           <>
-            <SectionHeader title={`Hozir tinglashmoqda · ${live.length}`} action={<Waveform bars={3} height={11} />} />
+            <SectionHeader title={`${t.listeningNow} · ${live.length}`} action={<Waveform bars={3} height={11} />} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[10px] px-4 md:px-0">
               {live.map((f, i) => (
                 <div key={f.id} style={{ animation: `avj-fade-up 0.4s ease-out ${i * 80}ms both` }}>
@@ -199,7 +204,7 @@ export function HomeCardsScreen() {
         {/* Recently listened */}
         {!loading && recent.length > 0 && (
           <>
-            <SectionHeader title="Yaqinda tingladi" style={{ marginTop: 20 }} />
+            <SectionHeader title={t.recentlyListened} style={{ marginTop: 20 }} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[10px] px-4 md:px-0">
               {recent.map((f, i) => (
                 <div key={f.id} style={{ animation: `avj-fade-up 0.4s ease-out ${i * 60}ms both` }}>
@@ -218,7 +223,7 @@ export function HomeCardsScreen() {
         {/* Offline friends */}
         {!loading && offline.length > 0 && (
           <>
-            <SectionHeader title="Do'stlar" style={{ marginTop: 20 }} />
+            <SectionHeader title={t.friends} style={{ marginTop: 20 }} />
             {offline.map(f => (
               <OfflineFriendRow key={f.id} f={f} onClick={() => navigate(`/friend/${f.id}`)} />
             ))}
