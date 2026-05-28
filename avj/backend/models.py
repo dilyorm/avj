@@ -23,6 +23,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     city: Mapped[str] = mapped_column(String(100), default="Toshkent")
     visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_top_songs: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_top_artists: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_recent_played: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_activity: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Spotify

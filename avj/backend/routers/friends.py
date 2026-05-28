@@ -6,6 +6,7 @@ from auth import get_current_user
 from database import get_db
 from models import Friendship, User
 from services.helpers import serialize_friend, serialize_public
+from services.profile_insights import apply_visibility_filter, build_profile_insights, visibility_payload
 
 router = APIRouter(prefix="/api", tags=["friends"])
 
@@ -106,7 +107,21 @@ async def get_friend_profile(
     status = _fs(row, current.id)
 
     if status == "friends":
-        return serialize_friend(user, friendship_status="friends")
+        payload = serialize_friend(user, friendship_status="friends")
+        payload["profile_visibility"] = visibility_payload(user)
+        insights = await build_profile_insights(user, db)
+        payload["insights"] = apply_visibility_filter(insights, user, is_owner=False)
+        return payload
+
+    # Public summary-only mode for non-friends if account visibility is enabled.
+    if user.visible:
+        payload = serialize_public(user, friendship_status=status)
+        payload["is_private"] = False
+        payload["profile_visibility"] = visibility_payload(user)
+        insights = await build_profile_insights(user, db)
+        payload["insights"] = apply_visibility_filter(insights, user, is_owner=False)
+        return payload
+
     return serialize_public(user, friendship_status=status)
 
 

@@ -174,3 +174,46 @@ async def get_recently_played(token: str, limit: int = 10) -> list[dict]:
     except Exception as e:
         log.debug("Yandex recently_played failed: %s", e)
         return []
+
+
+async def get_liked_tracks_and_artists(token: str, limit: int = 20) -> tuple[list[dict], list[dict]]:
+    """
+    Return fallback profile data from Yandex likes.
+    """
+    if not YANDEX_AVAILABLE:
+        return [], []
+    try:
+        client = await YMClient(token).init()
+        likes = await client.users_likes_tracks()
+        liked_tracks: list[dict] = []
+        liked_artists_counter: dict[str, int] = {}
+
+        track_ids = []
+        for lt in (getattr(likes, "tracks", None) or [])[:limit]:
+            if getattr(lt, "id", None):
+                track_ids.append(str(lt.id))
+
+        full_tracks = await client.tracks(track_ids) if track_ids else []
+        for t in full_tracks:
+            if not t:
+                continue
+            artist_names = [a.name for a in (t.artists or []) if getattr(a, "name", None)]
+            artist_text = ", ".join(artist_names)
+            liked_tracks.append({
+                "song": t.title,
+                "artist": artist_text,
+                "album": t.albums[0].title if t.albums else "",
+                "platform": "yandex",
+                "play_count": 1,
+            })
+            for a in artist_names:
+                liked_artists_counter[a] = liked_artists_counter.get(a, 0) + 1
+
+        liked_artists = [
+            {"artist": a, "play_count": c}
+            for a, c in sorted(liked_artists_counter.items(), key=lambda x: x[1], reverse=True)[:limit]
+        ]
+        return liked_tracks[:limit], liked_artists
+    except Exception as e:
+        log.debug("Yandex liked tracks/artists failed: %s", e)
+        return [], []

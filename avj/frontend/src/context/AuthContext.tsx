@@ -22,6 +22,12 @@ export interface AuthUser {
   track_count: number;
   now: { song: string; artist: string; album: string; platform: string } | null;
   last_played: { song: string; artist: string; album: string; platform: string } | null;
+  profile_visibility?: {
+    show_top_songs: boolean;
+    show_top_artists: boolean;
+    show_recent_played: boolean;
+    show_activity: boolean;
+  };
 }
 
 interface AuthCtx {

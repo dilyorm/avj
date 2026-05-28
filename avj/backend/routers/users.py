@@ -8,6 +8,7 @@ from models import Friendship, ListeningEvent, User
 from schemas import UserUpdateRequest
 from services.helpers import serialize_me
 from services import yandex as ym_svc, spotify as sp_svc
+from services.profile_insights import build_profile_insights, visibility_payload
 
 router = APIRouter(prefix="/api", tags=["users"])
 
@@ -29,7 +30,9 @@ async def get_me(current: User = Depends(get_current_user), db: AsyncSession = D
     )
     track_count = tc_result.scalar() or 0
 
-    return serialize_me(current, friend_count=friend_count, track_count=track_count)
+    payload = serialize_me(current, friend_count=friend_count, track_count=track_count)
+    payload["profile_visibility"] = visibility_payload(current)
+    return payload
 
 
 @router.patch("/me")
@@ -44,6 +47,14 @@ async def update_me(
         current.city = body.city
     if body.visible is not None:
         current.visible = body.visible
+    if body.show_top_songs is not None:
+        current.show_top_songs = body.show_top_songs
+    if body.show_top_artists is not None:
+        current.show_top_artists = body.show_top_artists
+    if body.show_recent_played is not None:
+        current.show_recent_played = body.show_recent_played
+    if body.show_activity is not None:
+        current.show_activity = body.show_activity
     await db.commit()
     return {"ok": True}
 
@@ -79,3 +90,14 @@ async def get_my_history(
             unique.append(t)
 
     return {"tracks": unique[:limit]}
+
+
+@router.get("/me/insights")
+async def get_my_insights(
+    window: str = Query(default="30d"),
+    current: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # v1: only 30d is supported
+    _ = window
+    return await build_profile_insights(current, db)

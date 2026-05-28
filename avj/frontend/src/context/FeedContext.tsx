@@ -38,6 +38,33 @@ export interface FriendData {
     platform: string;
     started_at: string;
   }>;
+  profile_visibility?: {
+    show_top_songs: boolean;
+    show_top_artists: boolean;
+    show_recent_played: boolean;
+    show_activity: boolean;
+  };
+  insights?: {
+    has_data: boolean;
+    has_fallback: boolean;
+    fallback_note?: string | null;
+    recent_played?: {
+      song: string;
+      artist: string;
+      album: string;
+      platform?: string;
+      last_listened_at?: string;
+      source?: string;
+    } | null;
+    top_songs: Array<{ song: string; artist: string; album: string; play_count: number; platform?: string }>;
+    top_artists: Array<{ artist: string; play_count: number }>;
+    activity: {
+      plays_today: number;
+      plays_last_7_days: number;
+      plays_last_30_days: number;
+      plays_by_day: Array<{ date: string; plays: number }>;
+    };
+  };
 }
 
 interface FeedCtx {

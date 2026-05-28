@@ -73,6 +73,7 @@ class UserOut(BaseModel):
     friend_count: int = 0
     track_count: int = 0
     now: NowPlaying | None = None
+    profile_visibility: dict | None = None
 
     model_config = {"from_attributes": True}
 
@@ -81,6 +82,45 @@ class UserUpdateRequest(BaseModel):
     name: str | None = None
     city: str | None = None
     visible: bool | None = None
+    show_top_songs: bool | None = None
+    show_top_artists: bool | None = None
+    show_recent_played: bool | None = None
+    show_activity: bool | None = None
+
+
+class ProfileVisibility(BaseModel):
+    show_top_songs: bool = True
+    show_top_artists: bool = True
+    show_recent_played: bool = True
+    show_activity: bool = True
+
+
+class InsightSong(BaseModel):
+    song: str
+    artist: str
+    album: str = ""
+    play_count: int = 0
+    platform: str | None = None
+
+
+class InsightArtist(BaseModel):
+    artist: str
+    play_count: int = 0
+
+
+class ActivityDay(BaseModel):
+    date: str
+    plays: int
+
+
+class ProfileInsightsResponse(BaseModel):
+    has_data: bool
+    has_fallback: bool
+    fallback_note: str | None = None
+    recent_played: dict | None = None
+    top_songs: list[InsightSong] = []
+    top_artists: list[InsightArtist] = []
+    activity: dict
 
 
 # ─── Friends ──────────────────────────────────────────────────

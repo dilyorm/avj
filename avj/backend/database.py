@@ -28,6 +28,11 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         from models import User, Friendship, ListeningEvent  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
+        # Lightweight compatibility migrations for existing deployments.
+        await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS show_top_songs BOOLEAN DEFAULT TRUE")
+        await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS show_top_artists BOOLEAN DEFAULT TRUE")
+        await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS show_recent_played BOOLEAN DEFAULT TRUE")
+        await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS show_activity BOOLEAN DEFAULT TRUE")
 
 
 async def get_db():

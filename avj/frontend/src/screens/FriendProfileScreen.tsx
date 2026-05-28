@@ -168,7 +168,7 @@ export function FriendProfileScreen() {
   }
 
   // ── Private profile ──────────────────────────────────────────────────────────
-  if (friend.is_private || fsStatus !== 'friends') {
+  if (friend.is_private) {
     return (
       <AppShell showTabBar={false}>
         <ScreenHeader left={backBtn} />
@@ -291,6 +291,38 @@ export function FriendProfileScreen() {
             </div>
           )}
         </div>
+
+        {/* Insights summary */}
+        {friend.insights && (
+          <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {friend.insights.recent_played && (
+              <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>MOST RECENT</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{friend.insights.recent_played.song}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{friend.insights.recent_played.artist}</div>
+              </div>
+            )}
+            {friend.insights.top_artists?.length > 0 && (
+              <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>FAVORITE ARTISTS</div>
+                {friend.insights.top_artists.slice(0, 3).map((a, i) => (
+                  <div key={`${a.artist}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                    <span style={{ fontSize: 13 }}>{a.artist}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{a.play_count}x</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {friend.insights.activity && (
+              <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>ACTIVITY</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Today {friend.insights.activity.plays_today} · 7d {friend.insights.activity.plays_last_7_days} · 30d {friend.insights.activity.plays_last_30_days}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Recent tracks */}
         {friend.recent && friend.recent.length > 0 && (

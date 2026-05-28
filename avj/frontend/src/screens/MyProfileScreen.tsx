@@ -116,6 +116,27 @@ interface HistoryTrack {
   played_at?: string;
 }
 
+interface ProfileInsights {
+  has_data: boolean;
+  has_fallback: boolean;
+  fallback_note?: string | null;
+  recent_played: {
+    song: string;
+    artist: string;
+    album: string;
+    platform?: 'spotify' | 'yandex';
+    last_listened_at?: string;
+  } | null;
+  top_songs: Array<{ song: string; artist: string; album: string; play_count: number; platform?: 'spotify' | 'yandex' }>;
+  top_artists: Array<{ artist: string; play_count: number }>;
+  activity: {
+    plays_today: number;
+    plays_last_7_days: number;
+    plays_last_30_days: number;
+    plays_by_day: Array<{ date: string; plays: number }>;
+  };
+}
+
 function formatPlayedAt(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -146,6 +167,14 @@ export function MyProfileScreen() {
   const [showYandexModal, setShowYandexModal] = useState(false);
   const [history, setHistory] = useState<HistoryTrack[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [insights, setInsights] = useState<ProfileInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [visMusic, setVisMusic] = useState({
+    show_top_songs: user?.profile_visibility?.show_top_songs ?? true,
+    show_top_artists: user?.profile_visibility?.show_top_artists ?? true,
+    show_recent_played: user?.profile_visibility?.show_recent_played ?? true,
+    show_activity: user?.profile_visibility?.show_activity ?? true,
+  });
 
   if (!user) return null;
 
@@ -164,8 +193,37 @@ export function MyProfileScreen() {
     }
   };
 
+  const fetchInsights = async () => {
+    if (!hasMusic) return;
+    setInsightsLoading(true);
+    try {
+      const res = await api.get<ProfileInsights>('/me/insights?window=30d');
+      setInsights(res);
+    } catch {
+      setInsights(null);
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => { fetchHistory(); }, [user.spotify, user.yandex]);
+  useEffect(() => {
+    fetchHistory();
+    fetchInsights();
+    setVisMusic({
+      show_top_songs: user.profile_visibility?.show_top_songs ?? true,
+      show_top_artists: user.profile_visibility?.show_top_artists ?? true,
+      show_recent_played: user.profile_visibility?.show_recent_played ?? true,
+      show_activity: user.profile_visibility?.show_activity ?? true,
+    });
+  }, [
+    user?.spotify,
+    user?.yandex,
+    user?.profile_visibility?.show_top_songs,
+    user?.profile_visibility?.show_top_artists,
+    user?.profile_visibility?.show_recent_played,
+    user?.profile_visibility?.show_activity,
+  ]);
 
   const handleVisibility = async (val: boolean) => {
     setVisible(val);
@@ -177,6 +235,20 @@ export function MyProfileScreen() {
       setVisible(!val); // revert on error
     } finally {
       setVisibilityLoading(false);
+    }
+  };
+
+  const handleSectionVisibility = async (
+    key: 'show_top_songs' | 'show_top_artists' | 'show_recent_played' | 'show_activity',
+    value: boolean,
+  ) => {
+    const prev = { ...visMusic };
+    setVisMusic((s) => ({ ...s, [key]: value }));
+    try {
+      await api.patch('/me', { [key]: value });
+      await refreshUser();
+    } catch {
+      setVisMusic(prev);
     }
   };
 
@@ -392,6 +464,108 @@ export function MyProfileScreen() {
               {t.noMusicWarning}
             </div>
           </div>
+        )}
+
+        {/* Public section visibility controls */}
+        <SectionHeader title="Public music sections" />
+        <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+          {[
+            { key: 'show_recent_played', label: 'Recent played' },
+            { key: 'show_top_songs', label: 'Top songs' },
+            { key: 'show_top_artists', label: 'Favorite artists' },
+            { key: 'show_activity', label: 'Activity' },
+          ].map(({ key, label }) => {
+            const k = key as 'show_top_songs' | 'show_top_artists' | 'show_recent_played' | 'show_activity';
+            return (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
+                <button
+                  onClick={() => handleSectionVisibility(k, !visMusic[k])}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: 12,
+                    border: '1px solid var(--hairline)',
+                    background: visMusic[k] ? 'var(--accent)' : 'var(--surface-2)',
+                    color: visMusic[k] ? '#000' : 'var(--text-muted)',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {visMusic[k] ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Insights */}
+        {hasMusic && (
+          <>
+            <SectionHeader title="Music insights (30d)" action={<button onClick={fetchInsights} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}><Icon name="refresh" size={14} sw={1.8} /></button>} />
+            <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {insightsLoading && (
+                <div style={{ padding: 14, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)', color: 'var(--text-muted)', fontSize: 13 }}>Loading insights...</div>
+              )}
+              {!insightsLoading && insights && insights.has_fallback && insights.fallback_note && (
+                <div style={{ padding: 10, borderRadius: 10, background: 'rgba(255,193,7,0.08)', border: '1px solid rgba(255,193,7,0.35)', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {insights.fallback_note}
+                </div>
+              )}
+              {!insightsLoading && insights && visMusic.show_recent_played && insights.recent_played && (
+                <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>MOST RECENT</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{insights.recent_played.song}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{insights.recent_played.artist}</div>
+                  {insights.recent_played.last_listened_at && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-dim)' }}>Last listened: {formatPlayedAt(insights.recent_played.last_listened_at)}</div>}
+                </div>
+              )}
+              {!insightsLoading && insights && visMusic.show_top_songs && (
+                <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>TOP SONGS</div>
+                  {insights.top_songs.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Not enough listening history.</div>
+                  ) : (
+                    insights.top_songs.slice(0, 5).map((s, i) => (
+                      <div key={`${s.song}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.song}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.artist}</div>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{s.play_count}x</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {!insightsLoading && insights && visMusic.show_top_artists && (
+                <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>FAVORITE ARTISTS</div>
+                  {insights.top_artists.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Not enough listening history.</div>
+                  ) : (
+                    insights.top_artists.slice(0, 5).map((a, i) => (
+                      <div key={`${a.artist}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
+                        <div style={{ fontSize: 13 }}>{a.artist}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{a.play_count}x</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {!insightsLoading && insights && visMusic.show_activity && (
+                <div style={{ padding: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--hairline)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>ACTIVITY</div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+                    <span>Today: <b style={{ color: 'var(--text)' }}>{insights.activity.plays_today}</b></span>
+                    <span>7d: <b style={{ color: 'var(--text)' }}>{insights.activity.plays_last_7_days}</b></span>
+                    <span>30d: <b style={{ color: 'var(--text)' }}>{insights.activity.plays_last_30_days}</b></span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Listening history */}
