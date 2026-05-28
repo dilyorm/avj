@@ -112,6 +112,26 @@ interface HistoryTrack {
   artist: string;
   album: string;
   platform: 'spotify' | 'yandex';
+  played_at?: string;
+}
+
+function formatPlayedAt(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    // Non-ISO label from yandex (e.g. "today", "yesterday"). Return as-is, capped.
+    return iso.length > 14 ? iso.slice(0, 14) : iso;
+  }
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'hozir';
+  if (diffMin < 60) return `${diffMin}d oldin`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}s oldin`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7) return `${diffD}k oldin`;
+  return d.toLocaleDateString('uz', { day: '2-digit', month: 'short' });
 }
 
 export function MyProfileScreen() {
@@ -392,44 +412,54 @@ export function MyProfileScreen() {
                   Tarix topilmadi
                 </div>
               )}
-              {!historyLoading && history.map((t, i) => (
-                <div key={i} style={{ padding: '9px 0', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < history.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
-                  <Album name={t.album} artist={t.artist} size={40} radius={6} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t.song}
+              {!historyLoading && history.map((t, i) => {
+                const when = formatPlayedAt(t.played_at);
+                return (
+                  <div key={i} style={{ padding: '9px 0', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < history.length - 1 ? '1px solid var(--hairline)' : 'none' }}>
+                    <Album name={t.album} artist={t.artist} size={40} radius={6} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t.song}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t.artist}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t.artist}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                      {when && (
+                        <span style={{ fontSize: 10.5, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+                          {when}
+                        </span>
+                      )}
+                      <PlatformTag platform={t.platform} size="sm" />
                     </div>
                   </div>
-                  <PlatformTag platform={t.platform} size="sm" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
 
-        <div style={{ flex: 1, minHeight: 16 }} />
+        <div style={{ height: 16 }} />
+      </div>
 
-        {/* Actions */}
-        <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Button variant="ghost" size="md" icon="share" onClick={handleShare}>Profilni ulashish</Button>
-          {shareToast && (
-            <div style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
-              {shareToast}
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="md"
-            icon="logout"
-            style={{ color: 'var(--text-muted)' }}
-            onClick={logout}
-          >
-            Chiqish
-          </Button>
-        </div>
+      {/* Pinned footer actions */}
+      <div style={{ flexShrink: 0, padding: '10px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--hairline)', background: 'var(--bg)' }}>
+        <Button variant="ghost" size="md" icon="share" onClick={handleShare}>Profilni ulashish</Button>
+        {shareToast && (
+          <div style={{ padding: '8px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+            {shareToast}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="md"
+          icon="logout"
+          style={{ color: 'var(--text-muted)' }}
+          onClick={logout}
+        >
+          Chiqish
+        </Button>
       </div>
 
       {showYandexModal && (

@@ -112,18 +112,59 @@ async def get_recently_played(token: str, limit: int = 10) -> list[dict]:
 
         result = []
         for tab in history.history_tabs:          # tabs = days, newest first
+            # Tab-level timestamp/label fallbacks
+            tab_iso = ""
+            tab_label = ""
+            try:
+                for attr in ("timestamp", "date", "ts"):
+                    v = getattr(tab, attr, None)
+                    if v:
+                        tab_iso = str(v)
+                        break
+                for attr in ("name", "title", "type_name", "type"):
+                    v = getattr(tab, attr, None)
+                    if v:
+                        tab_label = str(v)
+                        break
+            except Exception:
+                pass
+
             for group in (tab.items or []):
+                # Group-level timestamp fallbacks
+                group_iso = ""
+                try:
+                    for attr in ("timestamp", "date", "ts", "played_at"):
+                        v = getattr(group, attr, None)
+                        if v:
+                            group_iso = str(v)
+                            break
+                except Exception:
+                    pass
+
                 for item in (group.tracks or []):
                     if item.type != "track":
                         continue
                     if not item.data or not item.data.full_model:
                         continue
                     t = item.data.full_model
+                    # Item-level timestamp fallbacks
+                    item_iso = ""
+                    try:
+                        for attr in ("timestamp", "played_at", "date", "ts"):
+                            v = getattr(item, attr, None)
+                            if v:
+                                item_iso = str(v)
+                                break
+                    except Exception:
+                        pass
+
+                    played_at = item_iso or group_iso or tab_iso or tab_label
                     result.append({
-                        "song":     t.title,
-                        "artist":   ", ".join(a.name for a in (t.artists or [])),
-                        "album":    t.albums[0].title if t.albums else "",
-                        "platform": "yandex",
+                        "song":      t.title,
+                        "artist":    ", ".join(a.name for a in (t.artists or [])),
+                        "album":     t.albums[0].title if t.albums else "",
+                        "platform":  "yandex",
+                        "played_at": played_at,
                     })
                     if len(result) >= limit:
                         return result
