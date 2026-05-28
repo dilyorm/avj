@@ -199,8 +199,12 @@ const RU = {
   dayAgo: (n: number) => `${n}д назад`,
 } as const;
 
-export type Translations = typeof UZ;
-const translations: Record<Lang, Translations> = { uz: UZ, ru: RU };
+export type Translations = {
+  [K in keyof typeof UZ]: (typeof UZ)[K] extends (...args: infer A) => infer R
+    ? (...args: A) => R
+    : string;
+};
+const translations: Record<Lang, Translations> = { uz: UZ as Translations, ru: RU as Translations };
 
 interface LangCtx {
   lang: Lang;
